@@ -20,6 +20,7 @@ const inventory = ref([]);
 const bookings = ref([]);
 const blockedSlots = ref([]);
 const activeBookings = ref([]);
+const selectedShowcaseSpace = ref(null);
 
 const auth = ref(loadAuth());
 const adminUsername = ref('');
@@ -62,6 +63,7 @@ const galleryItems = computed(() =>
     }))
   )
 );
+const bookingChoices = computed(() => inventory.value);
 const homeQuotes = [
   '“Where care meets comfort, every stay feels restorative.”',
   '“Designed for healers, built for peace, powered by service.”',
@@ -166,6 +168,16 @@ function notify(message) {
 
 function goToPage(page) {
   currentPage.value = page;
+}
+
+function openSpaceDetails(space) {
+  selectedShowcaseSpace.value = space;
+  currentPage.value = 'space';
+}
+
+function selectBookingSpace(space) {
+  bookingForm.value.hallOrRoom = space.type;
+  bookingForm.value.selectedSpaceId = space.id;
 }
 
 function rotateQuote() {
@@ -559,7 +571,7 @@ onUnmounted(() => {
           </div>
           <div class="home-photos-grid">
             <article v-for="space in inventory" :key="space.id" class="home-photo-card">
-              <img :src="space.image" :alt="space.name" loading="lazy" />
+              <img :src="(space.gallery && space.gallery[0]) || space.image" :alt="space.name" loading="lazy" />
               <div class="home-photo-caption">
                 <strong>{{ space.name }}</strong>
                 <p>{{ space.rate }}</p>
@@ -591,7 +603,47 @@ onUnmounted(() => {
         </section>
 
         <section class="inventory-grid fade-up delay-2">
-          <PropertyCard v-for="item in inventory" :key="item.id" :item="item" @book="openBookingPage" />
+          <PropertyCard v-for="item in inventory" :key="item.id" :item="item" @book="openSpaceDetails" />
+        </section>
+      </template>
+
+      <template v-else-if="currentPage === 'space'">
+        <section class="panel fade-up delay-1">
+          <div v-if="selectedShowcaseSpace" class="space-detail-wrap">
+            <div class="panel-head">
+              <h3>{{ selectedShowcaseSpace.name }}</h3>
+              <p>{{ selectedShowcaseSpace.type }} · {{ selectedShowcaseSpace.capacity }}</p>
+            </div>
+
+            <div class="space-meta-row">
+              <p><strong>Price:</strong> {{ selectedShowcaseSpace.rate }}</p>
+              <p><strong>Type:</strong> {{ selectedShowcaseSpace.type }}</p>
+            </div>
+
+            <div class="space-gallery-grid">
+              <img
+                v-for="(photo, index) in selectedShowcaseSpace.gallery || [selectedShowcaseSpace.image]"
+                :key="`${selectedShowcaseSpace.id}-details-${index}`"
+                :src="photo"
+                :alt="`${selectedShowcaseSpace.name} photo ${index + 1}`"
+                loading="lazy"
+              />
+            </div>
+
+            <div class="space-feature-list">
+              <h4>Features</h4>
+              <ul>
+                <li v-for="feature in selectedShowcaseSpace.features" :key="feature">{{ feature }}</li>
+              </ul>
+            </div>
+
+            <div class="space-actions">
+              <button type="button" class="primary-btn" @click="openBookingPage(selectedShowcaseSpace)">
+                Book This {{ selectedShowcaseSpace.type === 'Room' ? 'Room' : 'Hall' }}
+              </button>
+              <button type="button" class="secondary-btn" @click="goToPage('home')">Back to Home</button>
+            </div>
+          </div>
         </section>
       </template>
 
@@ -599,7 +651,25 @@ onUnmounted(() => {
         <section class="panel fade-up delay-1">
           <div class="panel-head">
             <h3>Booking Details Page</h3>
-            <p>Every booking is saved directly into the backend database.</p>
+            <p>Select your room/hall first, then complete guest details.</p>
+          </div>
+
+          <div class="booking-select-grid">
+            <article
+              v-for="space in bookingChoices"
+              :key="`booking-${space.id}`"
+              class="booking-select-card"
+              :class="{ 'booking-select-card-active': bookingForm.selectedSpaceId === space.id }"
+            >
+              <img :src="space.image" :alt="space.name" loading="lazy" />
+              <div>
+                <strong>{{ space.name }}</strong>
+                <p>{{ space.rate }}</p>
+              </div>
+              <button type="button" class="card-book-btn" @click="selectBookingSpace(space)">
+                Choose {{ space.type === 'Room' ? 'Room' : 'Hall' }}
+              </button>
+            </article>
           </div>
 
           <form class="booking-form" @submit.prevent="submitBooking">
