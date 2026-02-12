@@ -554,6 +554,22 @@ onUnmounted(() => {
 
         <section class="panel fade-up delay-2">
           <div class="panel-head">
+            <h3>Rooms & Hall Preview</h3>
+            <p>Quick look at our two rooms and IMA conference hall.</p>
+          </div>
+          <div class="home-photos-grid">
+            <article v-for="space in inventory" :key="space.id" class="home-photo-card">
+              <img :src="space.image" :alt="space.name" loading="lazy" />
+              <div class="home-photo-caption">
+                <strong>{{ space.name }}</strong>
+                <p>{{ space.rate }}</p>
+              </div>
+            </article>
+          </div>
+        </section>
+
+        <section class="panel fade-up delay-2">
+          <div class="panel-head">
             <h3>Guesthouse Features</h3>
             <p>Designed to match medical professionals' schedules and expectations.</p>
           </div>
