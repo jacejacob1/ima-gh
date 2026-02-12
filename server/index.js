@@ -15,6 +15,7 @@ const db = new Database(DB_PATH);
 
 app.use(cors({ origin: true, credentials: false }));
 app.use(express.json());
+app.use('/images', express.static('public/images'));
 
 function initDb() {
   db.exec(`
@@ -174,7 +175,15 @@ app.get('/api/health', (_req, res) => {
 });
 
 app.get('/api/inventory', (_req, res) => {
-  res.json({ inventory });
+  const baseUrl = `${_req.protocol}://${_req.get('host')}`;
+  const normalized = inventory.map((item) => ({
+    ...item,
+    image: item.image.startsWith('http') ? item.image : `${baseUrl}${item.image}`,
+    gallery: (item.gallery || []).map((photo) =>
+      photo.startsWith('http') ? photo : `${baseUrl}${photo}`
+    ),
+  }));
+  res.json({ inventory: normalized });
 });
 
 app.post('/api/auth/login', (req, res) => {
