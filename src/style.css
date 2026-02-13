@@ -296,10 +296,8 @@ p {
   border-radius: 14px;
   background: rgba(255, 255, 255, 0.94);
   padding: 0.6rem;
-  position: absolute;
-  top: calc(100% + 6px);
-  right: 0;
-  width: min(320px, 88vw);
+  position: relative;
+  width: 100%;
   z-index: 40;
   box-shadow: 0 14px 24px rgba(7, 20, 18, 0.18);
   animation: menuDrop 0.24s ease;
