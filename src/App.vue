@@ -710,9 +710,9 @@ onUnmounted(() => {
               </label>
 
               <div class="meals-block">
-                <span>Breakfast / lunch / dinner</span>
+                <span class="meals-title">Breakfast / Lunch / Dinner</span>
                 <div class="checkbox-row">
-                  <label>
+                  <label class="meal-option">
                     <input
                       type="checkbox"
                       :checked="bookingForm.meals.includes('Breakfast')"
@@ -720,7 +720,7 @@ onUnmounted(() => {
                     />
                     Breakfast
                   </label>
-                  <label>
+                  <label class="meal-option">
                     <input
                       type="checkbox"
                       :checked="bookingForm.meals.includes('Lunch')"
@@ -728,7 +728,7 @@ onUnmounted(() => {
                     />
                     Lunch
                   </label>
-                  <label>
+                  <label class="meal-option">
                     <input
                       type="checkbox"
                       :checked="bookingForm.meals.includes('Dinner')"
@@ -885,8 +885,31 @@ onUnmounted(() => {
               <h3>Location</h3>
               <p>IMA House, Medical Drive</p>
               <p>New Delhi, 110002</p>
+              <a
+                class="map-link"
+                href="https://maps.google.com/?q=Indian+Medical+Association+New+Delhi"
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                Open in Google Maps
+              </a>
             </div>
           </div>
+
+          <section class="location-wrap">
+            <div class="panel-head">
+              <h3>Live Location Map</h3>
+              <p>Use this map view to navigate to the guesthouse.</p>
+            </div>
+            <div class="map-frame">
+              <iframe
+                title="IMA Guesthouse location map"
+                src="https://www.google.com/maps?q=Indian%20Medical%20Association%20New%20Delhi&output=embed"
+                loading="lazy"
+                referrerpolicy="no-referrer-when-downgrade"
+              ></iframe>
+            </div>
+          </section>
         </section>
       </template>
 

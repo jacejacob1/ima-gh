@@ -693,6 +693,24 @@ textarea:focus {
   font-weight: 500;
 }
 
+.meals-title {
+  font-weight: 700;
+  color: #143f38;
+}
+
+.meal-option {
+  background: rgba(235, 247, 243, 0.9);
+  border: 1px solid rgba(17, 60, 52, 0.14);
+  border-radius: 10px;
+  padding: 0.4rem 0.62rem;
+  color: #173e38;
+  min-height: 38px;
+}
+
+.meal-option input {
+  min-height: auto;
+}
+
 .room-gallery,
 .location-wrap,
 .admin-section {
@@ -755,6 +773,8 @@ textarea:focus {
 
 /* Contact map */
 .map-link {
+  display: inline-block;
+  margin-top: 0.35rem;
   color: #1b6e96;
   font-weight: 700;
   text-decoration: none;
