@@ -491,7 +491,7 @@ onUnmounted(() => {
       <div class="orb orb-one"></div>
       <div class="orb orb-two"></div>
 
-    <div v-if="!isBootLoading">
+
       <header class="topbar">
         <div class="nav-container">
           <a href="#" class="brand-wrap" @click.prevent="goToPage('home')">
