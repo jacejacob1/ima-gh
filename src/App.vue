@@ -570,7 +570,6 @@ onUnmounted(() => {
             </div>
           </section>
         </template>
-      </template>
 
         <template v-else-if="currentPage === 'space'">
           <section class="section fade-up">
@@ -611,8 +610,6 @@ onUnmounted(() => {
           </div>
         </section>
       </template>
-
-        </template>
 
         <template v-else-if="currentPage === 'booking'">
           <section class="section fade-up">
