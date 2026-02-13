@@ -1,7 +1,12 @@
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:8787';
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '';
+
+function toUrl(path) {
+  const normalizedBase = API_BASE_URL.endsWith('/') ? API_BASE_URL.slice(0, -1) : API_BASE_URL;
+  return `${normalizedBase}${path}`;
+}
 
 async function request(path, options = {}) {
-  const response = await fetch(`${API_BASE_URL}${path}`, {
+  const response = await fetch(toUrl(path), {
     headers: {
       'Content-Type': 'application/json',
       ...(options.headers || {}),
