@@ -167,6 +167,12 @@ function goToPage(page) {
   isMenuOpen.value = false;
 }
 
+function openSpaceDetails(space) {
+  selectedShowcaseSpace.value = space;
+  currentPage.value = 'space';
+  isMenuOpen.value = false;
+}
+
 function selectBookingSpace(space) {
   bookingForm.value.hallOrRoom = space.type;
   bookingForm.value.selectedSpaceId = space.id;
@@ -521,26 +527,29 @@ onUnmounted(() => {
               <p class="lead">Experience the IMA Premium Guest House. Comfort, redefined.</p>
               <div class="cta-group">
                 <button class="btn btn-primary" @click="goToPage('booking')">Book Your Stay</button>
-                <button class="btn btn-secondary" @click="goToPage('gallery')">View Gallery</button>
+                <button class="btn btn-secondary" @click="goToPage('contact')">Contact Desk</button>
               </div>
             </div>
           </section>
 
           <section class="section fade-up delay-2">
             <div class="panel-head">
-              <h3>Gallery</h3>
-              <p>A glimpse into your next stay.</p>
+              <h3>Room & Hall Preview</h3>
+              <p>Select your preferred space and continue with booking.</p>
             </div>
-             <!-- Use inventory grid here instead of cards -->
-            <div class="grid">
-               <article v-for="space in inventory" :key="space.id" class="card">
+            <transition-group name="room-flow" tag="div" class="space-preview-grid">
+              <article v-for="space in inventory" :key="space.id" class="space-preview-card">
                 <img :src="space.gallery?.[0] || space.image" :alt="space.name" loading="lazy" />
-                <div class="card-content">
+                <div class="space-preview-content">
                   <h3>{{ space.name }}</h3>
-                  <p>{{ space.type }}</p>
+                  <p class="muted">{{ space.type }} · {{ space.capacity }}</p>
+                  <p class="space-preview-price">{{ space.rate }}</p>
                 </div>
+                <button type="button" class="card-book-btn" @click="openSpaceDetails(space)">
+                  Book {{ space.type === 'Room' ? 'Room' : 'Hall' }}
+                </button>
               </article>
-            </div>
+            </transition-group>
           </section>
 
           <section class="section fade-up delay-3">

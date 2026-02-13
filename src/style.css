@@ -434,6 +434,7 @@ p {
 .highlights-grid,
 .gallery-grid,
 .booking-select-grid,
+.space-preview-grid,
 .contact-grid,
 .admin-grid,
 .room-gallery-grid,
@@ -448,6 +449,7 @@ p {
 .gallery-grid,
 .home-photos-grid,
 .booking-select-grid,
+.space-preview-grid,
 .contact-grid {
   grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
 }
@@ -455,7 +457,9 @@ p {
 .property-card,
 .gallery-card,
 .home-photo-card,
+.space-preview-card,
 .highlight-card,
+.card,
 .booking-card,
 .list-card,
 .contact-card,
@@ -473,6 +477,8 @@ p {
 .image-wrap img,
 .gallery-card img,
 .home-photo-card img,
+.space-preview-card img,
+.card img,
 .booking-select-card img,
 .space-gallery-grid img,
 .room-gallery-grid img {
@@ -486,6 +492,8 @@ p {
 .property-card:hover img,
 .gallery-card:hover img,
 .home-photo-card:hover img,
+.space-preview-card:hover img,
+.card:hover img,
 .booking-select-card:hover img {
   transform: scale(1.05);
 }
@@ -493,6 +501,7 @@ p {
 .body,
 .card-content,
 .home-photo-caption,
+.space-preview-content,
 .booking-select-card > div,
 .gallery-card p,
 .contact-card,
@@ -533,6 +542,38 @@ p {
   border: 1px solid rgba(16, 40, 35, 0.16);
 }
 
+.space-preview-card {
+  display: grid;
+  grid-template-rows: auto 1fr auto;
+  min-height: 100%;
+  transition: transform 0.36s ease, box-shadow 0.36s ease, border-color 0.36s ease;
+}
+
+.space-preview-card:hover {
+  transform: translateY(-6px);
+  border-color: rgba(11, 141, 115, 0.55);
+  box-shadow: 0 18px 28px rgba(9, 39, 34, 0.16);
+}
+
+.space-preview-content h3 {
+  font-size: 1.02rem;
+}
+
+.space-preview-price {
+  margin-top: 0.35rem;
+  font-weight: 800;
+  color: #0f5f68;
+}
+
+.card {
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+
+.card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 16px 26px rgba(9, 38, 33, 0.14);
+}
+
 .danger-btn {
   background: #fff3f3;
   color: var(--danger);
@@ -542,6 +583,14 @@ p {
 .booking-select-card-active {
   border-color: rgba(11, 141, 115, 0.68);
   box-shadow: 0 12px 25px rgba(11, 141, 115, 0.16);
+}
+
+.booking-select-grid {
+  align-items: stretch;
+}
+
+.booking-select-card {
+  align-content: start;
 }
 
 .highlight-card {
@@ -588,6 +637,14 @@ p {
   margin-top: 0.85rem;
   display: grid;
   gap: 0.82rem;
+}
+
+.booking-form {
+  margin-top: 1rem;
+}
+
+.booking-form .grid.two-col {
+  align-items: start;
 }
 
 .two-col,
@@ -787,6 +844,17 @@ textarea:focus {
 .slide-fade-enter-from,
 .slide-fade-leave-to {
   transform: translateY(8px);
+}
+
+.room-flow-enter-active,
+.room-flow-leave-active {
+  transition: all 0.46s cubic-bezier(0.2, 0.7, 0.2, 1);
+}
+
+.room-flow-enter-from,
+.room-flow-leave-to {
+  opacity: 0;
+  transform: translateY(14px) scale(0.98);
 }
 
 /* Responsive */
