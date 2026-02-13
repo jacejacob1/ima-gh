@@ -75,42 +75,39 @@ let quoteTimer;
 const homeHighlights = [
   {
     title: '24/7 Access',
-    caption: 'Any-hour check-in and check-out for doctors and delegates.',
+    caption: 'Check-in anytime. We understand the unpredictable schedule of medical professionals.',
     tag: 'Any Time',
   },
   {
-    title: 'Food Choices',
-    caption: 'Fresh veg and non-veg meal plans through the day.',
-    tag: 'Veg / Non-Veg',
+    title: 'Healthy Dining',
+    caption: 'Nutritious veg and non-veg meals prepared fresh daily for our guests.',
+    tag: 'Fresh Food',
   },
   {
-    title: 'Clean Stay',
-    caption: 'Daily housekeeping and hygiene-focused room maintenance.',
+    title: 'Sparkling Clean',
+    caption: 'Hospital-grade hygiene standards and daily housekeeping service.',
     tag: 'Sanitized',
   },
   {
-    title: 'Cab Connect',
-    caption: 'On-demand city and airport pickup/drop support.',
-    tag: 'Travel',
+    title: 'Travel Desk',
+    caption: 'Seamless airport transfers and city cab bookings managed for you.',
+    tag: 'Concierge',
   },
   {
-    title: 'Event Ready Hall',
-    caption: 'Conference AV setup with team support for smooth sessions.',
+    title: 'Event Hall',
+    caption: 'Premium conference setup with AV support for up to 180 delegates.',
     tag: '180 Seats',
   },
   {
-    title: 'Front Desk Care',
-    caption: 'Responsive reception assistance for all guest needs.',
-    tag: 'Support',
+    title: 'Warm Service',
+    caption: 'Our front desk team is dedicated to making your stay effortless.',
+    tag: 'Hospitality',
   },
 ];
 
 const activeQuote = computed(() => homeQuotes[currentQuoteIndex.value]);
 const heroBackgroundStyle = computed(() => ({
-  backgroundImage: `linear-gradient(120deg, rgba(11, 31, 26, 0.74), rgba(14, 47, 71, 0.6)), url(${inventory.value[0]?.image || ''})`,
-  backgroundSize: 'cover',
-  backgroundPosition: 'center',
-  backgroundRepeat: 'no-repeat',
+  backgroundImage: `url(${inventory.value[0]?.image || ''})`,
 }));
 
 function getEmptyBookingForm() {
@@ -493,13 +490,13 @@ onUnmounted(() => {
 
       <header class="topbar fade-up">
       <transition name="fade-brand" mode="out-in">
-        <div :key="`brand-${currentPage === 'home' ? 'home' : 'inner'}`" class="brand-wrap">
+        <a href="#" :key="`brand-${currentPage === 'home' ? 'home' : 'inner'}`" class="brand-wrap" @click.prevent="goToPage('home')">
           <img src="/ima-logo.png" alt="Indian Medical Association logo" class="ima-logo" />
-          <div>
+          <div class="brand-text">
             <p class="eyebrow">Indian Medical Association</p>
-            <h1>Guesthouse & Hall Reservations</h1>
+            <h1>Guesthouse</h1>
           </div>
-        </div>
+        </a>
       </transition>
       <div class="top-actions menu-bar">
         <button
@@ -549,61 +546,55 @@ onUnmounted(() => {
       <template v-if="currentPage === 'home'">
         <section class="hero fade-up delay-1">
           <div class="hero-banner" :style="heroBackgroundStyle">
-            <p class="eyebrow">IMA Premium Stay Experience</p>
-            <h2 class="hero-title-fade">Welcome to the IMA Guesthouse.</h2>
-            <transition name="fade-quote" mode="out-in">
-              <p :key="currentQuoteIndex" class="quote-line">{{ activeQuote }}</p>
-            </transition>
-            <p class="hero-copy hero-copy-fade">
-              Comfortable rooms, dependable service, and an event-ready hall tailored for doctors, delegates, and
-              healthcare gatherings.
-            </p>
-            <div class="hero-cta-row">
-              <button type="button" class="primary-btn" @click="goToPage('booking')">Book Your Stay</button>
+            <div class="hero-content">
+              <span class="hero-eyebrow">IMA Premium Guest House</span>
+              <h2 class="hero-title-fade">Rest & Recharge in Luxury.</h2>
+              <transition name="fade-quote" mode="out-in">
+                <p :key="currentQuoteIndex" class="quote-line">{{ activeQuote }}</p>
+              </transition>
+              <p class="hero-copy hero-copy-fade">
+                Experience world-class comfort tailored for medical professionals. 
+                Whether you're here for a conference or a getaway, we ensure your stay is flawless.
+              </p>
+              <div class="hero-cta-row">
+                <button type="button" class="primary-btn" @click="goToPage('booking')">Book Now</button>
+                <button type="button" class="secondary-btn" @click="goToPage('gallery')">View Gallery</button>
+              </div>
             </div>
           </div>
         </section>
 
         <section class="panel fade-up delay-2">
           <div class="panel-head">
-            <h3>Rooms & Hall Preview</h3>
-            <p>Quick look at our two rooms and IMA conference hall.</p>
+            <h3>Exclusive Accommodations</h3>
+            <p>Choose from our meticulously designed rooms and conference spaces.</p>
           </div>
-          <div class="home-photos-grid">
-            <article v-for="space in inventory" :key="space.id" class="home-photo-card">
-              <img :src="(space.gallery && space.gallery[0]) || space.image" :alt="space.name" loading="lazy" />
-              <div class="home-photo-caption">
-                <strong>{{ space.name }}</strong>
-                <p>{{ space.rate }}</p>
-              </div>
-            </article>
-          </div>
+          <!-- Home Photos Grid replaced by Inventory Grid for better flow -->
         </section>
 
-        <section class="panel fade-up delay-2">
+        <section class="inventory-grid fade-up delay-2">
+          <PropertyCard v-for="item in inventory" :key="item.id" :item="item" @book="openSpaceDetails" />
+        </section>
+
+        <section class="panel fade-up delay-3">
           <div class="panel-head">
-            <h3>Guesthouse Features</h3>
-            <p>Designed to match medical professionals' schedules and expectations.</p>
+            <h3>Why Choose Us?</h3>
+            <p>Curated services designed around the needs of the medical community.</p>
           </div>
           <div class="highlights-grid">
             <article
               v-for="(highlight, index) in homeHighlights"
               :key="highlight.title"
               class="highlight-card"
-              :class="{ 'highlight-card-alt': index % 2 === 1 }"
             >
               <span class="highlight-index">{{ featureCode(index) }}</span>
               <div class="highlight-content">
-                <p class="highlight-tag">{{ highlight.tag }}</p>
+                <span class="highlight-tag">{{ highlight.tag }}</span>
                 <h4>{{ highlight.title }}</h4>
                 <p>{{ highlight.caption }}</p>
               </div>
             </article>
           </div>
-        </section>
-
-        <section class="inventory-grid fade-up delay-2">
-          <PropertyCard v-for="item in inventory" :key="item.id" :item="item" @book="openSpaceDetails" />
         </section>
       </template>
 
