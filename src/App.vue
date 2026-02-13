@@ -40,6 +40,7 @@ const toast = ref('');
 let toastTimer;
 const isBootLoading = ref(true);
 const loadingProgress = ref(0);
+const isMenuOpen = ref(false);
 let loadingTimer;
 
 const spacesForSelection = computed(() =>
@@ -165,11 +166,13 @@ function notify(message) {
 
 function goToPage(page) {
   currentPage.value = page;
+  isMenuOpen.value = false;
 }
 
 function openSpaceDetails(space) {
   selectedShowcaseSpace.value = space;
   currentPage.value = 'space';
+  isMenuOpen.value = false;
 }
 
 function selectBookingSpace(space) {
@@ -488,121 +491,92 @@ onUnmounted(() => {
       <div class="orb orb-one"></div>
       <div class="orb orb-two"></div>
 
-      <header class="topbar fade-up">
-      <transition name="fade-brand" mode="out-in">
-        <a href="#" :key="`brand-${currentPage === 'home' ? 'home' : 'inner'}`" class="brand-wrap" @click.prevent="goToPage('home')">
-          <img src="/ima-logo.png" alt="Indian Medical Association logo" class="ima-logo" />
-          <div class="brand-text">
-            <p class="eyebrow">Indian Medical Association</p>
-            <h1>Guesthouse</h1>
-          </div>
-        </a>
-      </transition>
-      <div class="top-actions menu-bar">
-        <button
-          type="button"
-          class="anchor-btn menu-btn"
-          :class="{ 'menu-btn-active': currentPage === 'home' }"
-          @click="goToPage('home')"
-        >
-          Home
-        </button>
-        <button
-          type="button"
-          class="anchor-btn menu-btn"
-          :class="{ 'menu-btn-active': currentPage === 'booking' }"
-          @click="goToPage('booking')"
-        >
-          Book Rooms
-        </button>
-        <button
-          type="button"
-          class="anchor-btn menu-btn"
-          :class="{ 'menu-btn-active': currentPage === 'gallery' }"
-          @click="goToPage('gallery')"
-        >
-          Gallery
-        </button>
-        <button
-          type="button"
-          class="anchor-btn menu-btn"
-          :class="{ 'menu-btn-active': currentPage === 'contact' }"
-          @click="goToPage('contact')"
-        >
-          Contact
-        </button>
-        <button
-          type="button"
-          class="anchor-btn menu-btn"
-          :class="{ 'menu-btn-active': currentPage === 'admin' }"
-          @click="goToPage('admin')"
-        >
-          Admin
-        </button>
-      </div>
+    <div v-if="!isBootLoading">
+      <header class="topbar">
+        <div class="nav-container">
+          <a href="#" class="brand-wrap" @click.prevent="goToPage('home')">
+            <img src="/ima-logo.png" alt="IMA Logo" class="ima-logo" />
+            <span>IMA Guesthouse</span>
+          </a>
+
+          <nav class="desktop-menu">
+            <button class="nav-link" :class="{ active: currentPage === 'home' }" @click="goToPage('home')">Home</button>
+            <button class="nav-link" :class="{ active: currentPage === 'booking' }" @click="goToPage('booking')">Book Rooms</button>
+            <button class="nav-link" :class="{ active: currentPage === 'gallery' }" @click="goToPage('gallery')">Gallery</button>
+            <button class="nav-link" :class="{ active: currentPage === 'contact' }" @click="goToPage('contact')">Contact</button>
+            <button class="nav-link" :class="{ active: currentPage === 'admin' }" @click="goToPage('admin')">Admin</button>
+          </nav>
+
+          <button class="hamburger-btn" @click="isMenuOpen = !isMenuOpen">
+            {{ isMenuOpen ? '✕' : '☰' }}
+          </button>
+        </div>
       </header>
 
+      <transition name="fade">
+        <div v-if="isMenuOpen" class="mobile-menu">
+          <button class="mobile-nav-link" @click="goToPage('home')">Home</button>
+          <button class="mobile-nav-link" @click="goToPage('booking')">Book Rooms</button>
+          <button class="mobile-nav-link" @click="goToPage('gallery')">Gallery</button>
+          <button class="mobile-nav-link" @click="goToPage('contact')">Contact</button>
+          <button class="mobile-nav-link" @click="goToPage('admin')">Admin</button>
+        </div>
+      </transition>
+
       <main class="content">
-      <template v-if="currentPage === 'home'">
-        <section class="hero fade-up delay-1">
-          <div class="hero-banner" :style="heroBackgroundStyle">
-            <div class="hero-content">
-              <span class="hero-eyebrow">IMA Premium Guest House</span>
-              <h2 class="hero-title-fade">Rest & Recharge in Luxury.</h2>
-              <transition name="fade-quote" mode="out-in">
-                <p :key="currentQuoteIndex" class="quote-line">{{ activeQuote }}</p>
-              </transition>
-              <p class="hero-copy hero-copy-fade">
-                Experience world-class comfort tailored for medical professionals. 
-                Whether you're here for a conference or a getaway, we ensure your stay is flawless.
-              </p>
-              <div class="hero-cta-row">
-                <button type="button" class="primary-btn" @click="goToPage('booking')">Book Now</button>
-                <button type="button" class="secondary-btn" @click="goToPage('gallery')">View Gallery</button>
+        <template v-if="currentPage === 'home'">
+          <section class="hero">
+            <div class="hero-bg" :style="heroBackgroundStyle"></div>
+            <div class="hero-overlay"></div>
+            <div class="hero-content fade-up">
+              <h2>Cinematic Stay.</h2>
+              <p class="lead">Experience the IMA Premium Guest House. Comfort, redefined.</p>
+              <div class="cta-group">
+                <button class="btn btn-primary" @click="goToPage('booking')">Book Your Stay</button>
+                <button class="btn btn-secondary" @click="goToPage('gallery')">View Gallery</button>
               </div>
             </div>
-          </div>
-        </section>
+          </section>
 
-        <section class="panel fade-up delay-2">
-          <div class="panel-head">
-            <h3>Exclusive Accommodations</h3>
-            <p>Choose from our meticulously designed rooms and conference spaces.</p>
-          </div>
-          <!-- Home Photos Grid replaced by Inventory Grid for better flow -->
-        </section>
+          <section class="section fade-up delay-2">
+            <div class="panel-head">
+              <h3>Gallery</h3>
+              <p>A glimpse into your next stay.</p>
+            </div>
+             <!-- Use inventory grid here instead of cards -->
+            <div class="grid">
+               <article v-for="space in inventory" :key="space.id" class="card">
+                <img :src="space.gallery?.[0] || space.image" :alt="space.name" loading="lazy" />
+                <div class="card-content">
+                  <h3>{{ space.name }}</h3>
+                  <p>{{ space.type }}</p>
+                </div>
+              </article>
+            </div>
+          </section>
 
-        <section class="inventory-grid fade-up delay-2">
-          <PropertyCard v-for="item in inventory" :key="item.id" :item="item" @book="openSpaceDetails" />
-        </section>
-
-        <section class="panel fade-up delay-3">
-          <div class="panel-head">
-            <h3>Why Choose Us?</h3>
-            <p>Curated services designed around the needs of the medical community.</p>
-          </div>
-          <div class="highlights-grid">
-            <article
-              v-for="(highlight, index) in homeHighlights"
-              :key="highlight.title"
-              class="highlight-card"
-            >
-              <span class="highlight-index">{{ featureCode(index) }}</span>
-              <div class="highlight-content">
-                <span class="highlight-tag">{{ highlight.tag }}</span>
-                <h4>{{ highlight.title }}</h4>
-                <p>{{ highlight.caption }}</p>
-              </div>
-            </article>
-          </div>
-        </section>
+          <section class="section fade-up delay-3">
+            <div class="panel-head">
+              <h3>Features</h3>
+              <p>Everything you need, nothing you don't.</p>
+            </div>
+            <div class="grid">
+              <article v-for="highlight in homeHighlights" :key="highlight.title" class="card">
+                <div class="card-content">
+                   <h3>{{ highlight.title }}</h3>
+                   <p>{{ highlight.caption }}</p>
+                </div>
+              </article>
+            </div>
+          </section>
+        </template>
       </template>
 
-      <template v-else-if="currentPage === 'space'">
-        <section class="panel fade-up delay-1">
+        <template v-else-if="currentPage === 'space'">
+          <section class="section fade-up">
           <div v-if="selectedShowcaseSpace" class="space-detail-wrap">
-            <div class="panel-head">
-              <h3>{{ selectedShowcaseSpace.name }}</h3>
+              <div class="panel-head">
+                <h3>{{ selectedShowcaseSpace.name }}</h3>
               <p>{{ selectedShowcaseSpace.type }} · {{ selectedShowcaseSpace.capacity }}</p>
             </div>
 
@@ -638,12 +612,14 @@ onUnmounted(() => {
         </section>
       </template>
 
-      <template v-else-if="currentPage === 'booking'">
-        <section class="panel fade-up delay-1">
-          <div class="panel-head">
-            <h3>Booking Details Page</h3>
-            <p>Select your room/hall first, then complete guest details.</p>
-          </div>
+        </template>
+
+        <template v-else-if="currentPage === 'booking'">
+          <section class="section fade-up">
+            <div class="panel-head">
+              <h3>Booking</h3>
+              <p>Reserve your spot.</p>
+            </div>
 
           <div class="booking-select-grid">
             <article
@@ -883,14 +859,16 @@ onUnmounted(() => {
       </template>
 
       <template v-else-if="currentPage === 'gallery'">
-        <section class="panel fade-up delay-1">
+        <section class="section fade-up">
           <div class="panel-head">
             <h3>Gallery</h3>
-            <p>Explore rooms and hall ambience before your booking.</p>
+            <p>Moments from our guesthouse.</p>
           </div>
           <div class="gallery-grid">
             <article v-for="item in galleryItems" :key="item.id" class="gallery-card">
-              <img :src="item.photo" :alt="item.name" loading="lazy" />
+              <div class="image-wrap">
+                <img :src="item.photo" :alt="item.name" loading="lazy" />
+              </div>
               <p>{{ item.name }}</p>
             </article>
           </div>
@@ -898,57 +876,31 @@ onUnmounted(() => {
       </template>
 
       <template v-else-if="currentPage === 'contact'">
-        <section class="panel fade-up delay-1">
+        <section class="section fade-up">
           <div class="panel-head">
-            <h3>Contact</h3>
-            <p>Reach the guesthouse desk for bookings, support, and event coordination.</p>
+            <h3>Contact Us</h3>
+            <p>We're here to help.</p>
           </div>
-
-          <div class="contact-grid">
-            <article class="contact-card">
-              <h4>IMA Guesthouse Front Desk</h4>
-              <p>Phone: +91 44 4000 1234</p>
-              <p>Email: stay@ima-guesthouse.org</p>
-              <p>Hours: 24/7 support</p>
-            </article>
-            <article class="contact-card">
-              <h4>Address</h4>
-              <p>IMA Guesthouse & Event Hall</p>
-              <p>Anna Salai, Thousand Lights</p>
-              <p>Chennai, Tamil Nadu 600006</p>
-              <a
-                class="map-link"
-                href="https://maps.google.com/?q=Indian+Medical+Association+Chennai"
-                target="_blank"
-                rel="noopener noreferrer"
-              >
-                Open in Google Maps
-              </a>
-            </article>
-          </div>
-
-          <section class="location-wrap">
-            <div class="panel-head">
+          <div class="grid two-col">
+            <div class="contact-card">
+              <h3>Front Desk</h3>
+              <p>+91 98765 43210</p>
+              <p>reservation@imaguesthouse.com</p>
+            </div>
+            <div class="contact-card">
               <h3>Location</h3>
-              <p>View the guesthouse location below.</p>
+              <p>IMA House, Medical Drive</p>
+              <p>New Delhi, 110002</p>
             </div>
-            <div class="map-frame">
-              <iframe
-                title="IMA Guesthouse location map"
-                src="https://www.google.com/maps?q=Indian%20Medical%20Association%20Chennai&output=embed"
-                loading="lazy"
-                referrerpolicy="no-referrer-when-downgrade"
-              ></iframe>
-            </div>
-          </section>
+          </div>
         </section>
       </template>
 
       <template v-else-if="currentPage === 'admin'">
-        <section class="panel fade-up delay-1">
+        <section class="section fade-up">
           <div class="panel-head">
-            <h3>Admin Dashboard</h3>
-            <p>Role-based access for events, room blocks, and bookings.</p>
+            <h3>Administration</h3>
+            <p>Manage bookings and inventory.</p>
           </div>
 
           <div v-if="!auth.token" class="admin-login">
