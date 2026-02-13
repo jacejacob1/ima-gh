@@ -1,6 +1,5 @@
 <script setup>
 import { computed, onMounted, onUnmounted, ref } from 'vue';
-import PropertyCard from './components/PropertyCard.vue';
 import BookingCard from './components/BookingCard.vue';
 import {
   apiCreateBlock,
@@ -106,7 +105,6 @@ const homeHighlights = [
   },
 ];
 
-const activeQuote = computed(() => homeQuotes[currentQuoteIndex.value]);
 const heroBackgroundStyle = computed(() => ({
   backgroundImage: `url(${inventory.value[0]?.image || ''})`,
 }));
@@ -169,12 +167,6 @@ function goToPage(page) {
   isMenuOpen.value = false;
 }
 
-function openSpaceDetails(space) {
-  selectedShowcaseSpace.value = space;
-  currentPage.value = 'space';
-  isMenuOpen.value = false;
-}
-
 function selectBookingSpace(space) {
   bookingForm.value.hallOrRoom = space.type;
   bookingForm.value.selectedSpaceId = space.id;
@@ -191,10 +183,6 @@ function startQuoteRotation() {
 function stopQuoteRotation() {
   clearInterval(quoteTimer);
   quoteTimer = undefined;
-}
-
-function featureCode(index) {
-  return `0${index + 1}`;
 }
 
 function startBootLoader() {
