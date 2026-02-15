@@ -427,14 +427,31 @@ function validateBooking() {
 }
 
 async function loadPublicData() {
-  const [inventoryResponse, blocksResponse, activeResponse] = await Promise.all([
+  const [inventoryResult, blocksResult, activeResult] = await Promise.allSettled([
     apiGetInventory(),
     apiGetBlockedSlots(),
     apiGetActiveBookings(),
   ]);
-  inventory.value = Array.isArray(inventoryResponse?.inventory) ? inventoryResponse.inventory : [];
-  blockedSlots.value = Array.isArray(blocksResponse?.blockedSlots) ? blocksResponse.blockedSlots : [];
-  activeBookings.value = Array.isArray(activeResponse?.bookings) ? activeResponse.bookings : [];
+
+  if (inventoryResult.status === 'fulfilled') {
+    inventory.value = Array.isArray(inventoryResult.value?.inventory) ? inventoryResult.value.inventory : [];
+  } else {
+    inventory.value = [];
+  }
+
+  if (blocksResult.status === 'fulfilled') {
+    blockedSlots.value = Array.isArray(blocksResult.value?.blockedSlots)
+      ? blocksResult.value.blockedSlots
+      : [];
+  } else {
+    blockedSlots.value = [];
+  }
+
+  if (activeResult.status === 'fulfilled') {
+    activeBookings.value = Array.isArray(activeResult.value?.bookings) ? activeResult.value.bookings : [];
+  } else {
+    activeBookings.value = [];
+  }
 }
 
 async function loadAdminBookings() {
