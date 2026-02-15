@@ -7,7 +7,6 @@ import { query } from '../lib/db.js';
 import { sendBookingConfirmation, sendOtpEmail } from '../lib/email.js';
 import {
   badRequest,
-  baseUrlFromRequest,
   isValidDateRange,
   json,
   methodNotAllowed,
@@ -79,11 +78,10 @@ async function handleHealth(req, res) {
 
 async function handleInventory(req, res) {
   if (req.method !== 'GET') return methodNotAllowed(res, ['GET']);
-  const baseUrl = baseUrlFromRequest(req);
   const normalized = inventory.map((item) => ({
     ...item,
-    image: item.image.startsWith('http') ? item.image : `${baseUrl}${item.image}`,
-    gallery: (item.gallery || []).map((photo) => (photo.startsWith('http') ? photo : `${baseUrl}${photo}`)),
+    image: item.image,
+    gallery: item.gallery || [item.image],
   }));
   return json(res, 200, { inventory: normalized });
 }
