@@ -1,6 +1,6 @@
-import { requireAuth } from '../_lib/auth.js';
-import { query } from '../_lib/db.js';
-import { json, methodNotAllowed } from '../_lib/http.js';
+import { requireAuth } from '../../lib/auth.js';
+import { query } from '../../lib/db.js';
+import { json, methodNotAllowed } from '../../lib/http.js';
 
 export default async function handler(req, res) {
   if (req.method !== 'GET') {

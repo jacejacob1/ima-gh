@@ -1,4 +1,4 @@
-import { json, methodNotAllowed } from './_lib/http.js';
+import { json, methodNotAllowed } from '../lib/http.js';
 
 export default function handler(req, res) {
   if (req.method !== 'GET') {

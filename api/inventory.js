@@ -1,5 +1,5 @@
-import { baseUrlFromRequest, json, methodNotAllowed } from './_lib/http.js';
-import { inventory } from './_lib/inventory.js';
+import { baseUrlFromRequest, json, methodNotAllowed } from '../lib/http.js';
+import { inventory } from '../lib/inventory.js';
 
 export default function handler(req, res) {
   if (req.method !== 'GET') {

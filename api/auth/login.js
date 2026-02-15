@@ -1,7 +1,7 @@
 import bcrypt from 'bcryptjs';
-import { signAuthToken } from '../_lib/auth.js';
-import { query } from '../_lib/db.js';
-import { badRequest, json, methodNotAllowed } from '../_lib/http.js';
+import { signAuthToken } from '../../lib/auth.js';
+import { query } from '../../lib/db.js';
+import { badRequest, json, methodNotAllowed } from '../../lib/http.js';
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') {

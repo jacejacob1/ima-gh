@@ -1,6 +1,6 @@
 import Razorpay from 'razorpay';
-import { computeBookingAmount } from '../_lib/pricing.js';
-import { badRequest, isValidDateRange, json, methodNotAllowed, toIso } from '../_lib/http.js';
+import { computeBookingAmount } from '../lib/pricing.js';
+import { badRequest, isValidDateRange, json, methodNotAllowed, toIso } from '../lib/http.js';
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
@@ -22,18 +22,14 @@ export default async function handler(req, res) {
     return badRequest(res, 'Razorpay is not configured. Add RAZORPAY_KEY_ID and RAZORPAY_KEY_SECRET.');
   }
 
-  const checkinIso = toIso(checkinDateTime);
-  const checkoutIso = toIso(checkoutDateTime);
-  const pricing = computeBookingAmount(String(selectedSpaceId), checkinIso, checkoutIso);
-
+  const pricing = computeBookingAmount(String(selectedSpaceId), toIso(checkinDateTime), toIso(checkoutDateTime));
   const razorpay = new Razorpay({ key_id: keyId, key_secret: keySecret });
+
   const order = await razorpay.orders.create({
     amount: pricing.amountInr * 100,
     currency: 'INR',
     receipt: `ima_${Date.now()}`,
-    notes: {
-      selectedSpaceId: String(selectedSpaceId),
-    },
+    notes: { selectedSpaceId: String(selectedSpaceId) },
   });
 
   return json(res, 200, {

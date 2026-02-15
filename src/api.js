@@ -42,7 +42,7 @@ export function apiCreateBooking(payload) {
 }
 
 export function apiCreatePaymentOrder(payload) {
-  return request('/api/payments/create-order', {
+  return request('/api/payments', {
     method: 'POST',
     body: JSON.stringify(payload),
   });
@@ -56,14 +56,14 @@ export function apiSubmitFeedback(payload) {
 }
 
 export function apiRequestGuestOtp(payload) {
-  return request('/api/guest/request-otp', {
+  return request('/api/guest/auth?action=request', {
     method: 'POST',
     body: JSON.stringify(payload),
   });
 }
 
 export function apiVerifyGuestOtp(payload) {
-  return request('/api/guest/verify-otp', {
+  return request('/api/guest/auth?action=verify', {
     method: 'POST',
     body: JSON.stringify(payload),
   });
@@ -76,13 +76,13 @@ export function apiGetGuestBookings(token) {
 }
 
 export function apiGetGuestInvoiceMeta(token, bookingId) {
-  return request(`/api/guest/bookings/${bookingId}?mode=json`, {
+  return request(`/api/guest/bookings?bookingId=${encodeURIComponent(bookingId)}&mode=json`, {
     headers: { Authorization: `Bearer ${token}` },
   });
 }
 
 export async function apiDownloadGuestInvoice(token, bookingId) {
-  const response = await fetch(toUrl(`/api/guest/bookings/${bookingId}`), {
+  const response = await fetch(toUrl(`/api/guest/bookings?bookingId=${encodeURIComponent(bookingId)}&download=true`), {
     headers: { Authorization: `Bearer ${token}` },
   });
 
@@ -95,7 +95,7 @@ export async function apiDownloadGuestInvoice(token, bookingId) {
 }
 
 export function apiGetActiveBookings() {
-  return request('/api/bookings/active');
+  return request('/api/bookings');
 }
 
 export function apiGetBlockedSlots() {
@@ -123,14 +123,14 @@ export function apiCreateBlock(token, payload) {
 }
 
 export function apiDeleteBlock(token, blockId) {
-  return request(`/api/admin/blocks/${blockId}`, {
+  return request(`/api/admin/blocks?id=${encodeURIComponent(blockId)}`, {
     method: 'DELETE',
     headers: { Authorization: `Bearer ${token}` },
   });
 }
 
 export function apiDeleteBooking(token, bookingId) {
-  return request(`/api/admin/bookings/${bookingId}`, {
+  return request(`/api/admin/bookings?id=${encodeURIComponent(bookingId)}`, {
     method: 'DELETE',
     headers: { Authorization: `Bearer ${token}` },
   });

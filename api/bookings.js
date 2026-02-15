@@ -1,9 +1,9 @@
 import crypto from 'node:crypto';
-import { query } from '../_lib/db.js';
-import { selectedSpaceLabel } from '../_lib/inventory.js';
-import { computeBookingAmount } from '../_lib/pricing.js';
-import { sendBookingConfirmation } from '../_lib/email.js';
-import { badRequest, isValidDateRange, json, methodNotAllowed, toIso } from '../_lib/http.js';
+import { query } from '../lib/db.js';
+import { selectedSpaceLabel } from '../lib/inventory.js';
+import { computeBookingAmount } from '../lib/pricing.js';
+import { sendBookingConfirmation } from '../lib/email.js';
+import { badRequest, isValidDateRange, json, methodNotAllowed, toIso } from '../lib/http.js';
 
 async function hasBookingConflict(spaceId, checkinIso, checkoutIso) {
   const result = await query(
@@ -48,11 +48,27 @@ function verifyRazorpayPayment(paymentDetails) {
   return expectedSignature === paymentDetails.signature;
 }
 
-export default async function handler(req, res) {
-  if (req.method !== 'POST') {
-    return methodNotAllowed(res, ['POST']);
-  }
+async function getActive(req, res) {
+  const result = await query(
+    `
+      SELECT id, guest_name, selected_space_label, checkout_datetime
+      FROM bookings
+      WHERE checkout_datetime > NOW()
+      ORDER BY checkout_datetime ASC
+    `
+  );
 
+  return json(res, 200, {
+    bookings: result.rows.map((row) => ({
+      id: row.id,
+      guestName: row.guest_name,
+      selectedSpaceLabel: row.selected_space_label,
+      checkoutDateTime: row.checkout_datetime,
+    })),
+  });
+}
+
+async function createBooking(req, res) {
   const payload = req.body || {};
   const requiredFields = [
     'guestName',
@@ -71,14 +87,10 @@ export default async function handler(req, res) {
   ];
 
   const missing = requiredFields.find((field) => !payload[field]);
-  if (missing) {
-    return badRequest(res, `${missing} is required.`);
-  }
-
+  if (missing) return badRequest(res, `${missing} is required.`);
   if (!Array.isArray(payload.meals) || payload.meals.length === 0) {
     return badRequest(res, 'At least one meal must be selected.');
   }
-
   if (!isValidDateRange(payload.checkinDateTime, payload.checkoutDateTime)) {
     return badRequest(res, 'Invalid checkin/checkout date range.');
   }
@@ -87,10 +99,7 @@ export default async function handler(req, res) {
   const checkoutIso = toIso(payload.checkoutDateTime);
 
   const blocked = await blockConflict(payload.selectedSpaceId, checkinIso, checkoutIso);
-  if (blocked) {
-    return json(res, 409, { message: `Selected slot is blocked for ${blocked.event_name}.` });
-  }
-
+  if (blocked) return json(res, 409, { message: `Selected slot is blocked for ${blocked.event_name}.` });
   if (await hasBookingConflict(payload.selectedSpaceId, checkinIso, checkoutIso)) {
     return json(res, 409, { message: 'Selected slot already has a booking.' });
   }
@@ -106,16 +115,13 @@ export default async function handler(req, res) {
     if (!details.orderId || !details.paymentId || !details.signature) {
       return badRequest(res, 'Razorpay payment details are required.');
     }
-
     if (!verifyRazorpayPayment(details)) {
       return badRequest(res, 'Razorpay signature verification failed.');
     }
-
     paymentStatus = 'paid';
     paymentProvider = 'razorpay';
     paymentReference = details.paymentId;
   } else if (payload.paymentMethod === 'Google Pay / UPI' || payload.paymentMethod === 'Card / Credit') {
-    paymentProvider = 'manual';
     paymentReference = String((payload.paymentDetails || {}).transactionRef || '');
   }
 
@@ -149,30 +155,10 @@ export default async function handler(req, res) {
   await query(
     `
       INSERT INTO bookings (
-        id,
-        guest_name,
-        guest_email,
-        guest_phone,
-        branch,
-        id_proof_type,
-        id_proof_number,
-        hall_or_room,
-        selected_space_id,
-        selected_space_label,
-        checkin_datetime,
-        checkout_datetime,
-        total_amount,
-        food_preference,
-        meals_json,
-        cab_service,
-        payment_method,
-        payment_status,
-        payment_provider,
-        payment_reference,
-        payment_details_json,
-        invoice_number,
-        feedback_text,
-        created_at
+        id, guest_name, guest_email, guest_phone, branch, id_proof_type, id_proof_number,
+        hall_or_room, selected_space_id, selected_space_label, checkin_datetime, checkout_datetime,
+        total_amount, food_preference, meals_json, cab_service, payment_method, payment_status,
+        payment_provider, payment_reference, payment_details_json, invoice_number, feedback_text, created_at
       )
       VALUES (
         $1, $2, $3, $4, $5, $6, $7, $8,
@@ -229,4 +215,10 @@ export default async function handler(req, res) {
     amountSummary: amount.summary,
     message: 'Booking confirmed. Confirmation email sent to secretary@imatnsb-hqgh.com.',
   });
+}
+
+export default async function handler(req, res) {
+  if (req.method === 'GET') return getActive(req, res);
+  if (req.method === 'POST') return createBooking(req, res);
+  return methodNotAllowed(res, ['GET', 'POST']);
 }
