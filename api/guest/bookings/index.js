@@ -8,9 +8,13 @@ export default async function handler(req, res) {
     return methodNotAllowed(res, ['GET']);
   }
 
-  const user = requireAuth(req, res, ['admin', 'manager']);
+  const user = requireAuth(req, res, ['guest']);
   if (!user) return;
 
-  const result = await query('SELECT * FROM bookings ORDER BY created_at DESC');
+  const result = await query(
+    'SELECT * FROM bookings WHERE guest_phone = $1 ORDER BY checkin_datetime DESC',
+    [user.guestPhone]
+  );
+
   return json(res, 200, { bookings: result.rows.map(serializeBooking) });
 }

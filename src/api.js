@@ -41,11 +41,57 @@ export function apiCreateBooking(payload) {
   });
 }
 
+export function apiCreatePaymentOrder(payload) {
+  return request('/api/payments/create-order', {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  });
+}
+
 export function apiSubmitFeedback(payload) {
   return request('/api/feedback', {
     method: 'POST',
     body: JSON.stringify(payload),
   });
+}
+
+export function apiRequestGuestOtp(payload) {
+  return request('/api/guest/request-otp', {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  });
+}
+
+export function apiVerifyGuestOtp(payload) {
+  return request('/api/guest/verify-otp', {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  });
+}
+
+export function apiGetGuestBookings(token) {
+  return request('/api/guest/bookings', {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+}
+
+export function apiGetGuestInvoiceMeta(token, bookingId) {
+  return request(`/api/guest/bookings/${bookingId}?mode=json`, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+}
+
+export async function apiDownloadGuestInvoice(token, bookingId) {
+  const response = await fetch(toUrl(`/api/guest/bookings/${bookingId}`), {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+
+  if (!response.ok) {
+    const data = await response.json().catch(() => ({}));
+    throw new Error(data.message || 'Unable to download invoice');
+  }
+
+  return response.blob();
 }
 
 export function apiGetActiveBookings() {
@@ -58,6 +104,12 @@ export function apiGetBlockedSlots() {
 
 export function apiGetAdminBookings(token) {
   return request('/api/admin/bookings', {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+}
+
+export function apiGetAdminAnalytics(token) {
+  return request('/api/admin/analytics', {
     headers: { Authorization: `Bearer ${token}` },
   });
 }

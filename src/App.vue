@@ -2,16 +2,22 @@
 import { computed, onMounted, onUnmounted, ref } from 'vue';
 import BookingCard from './components/BookingCard.vue';
 import {
+  apiCreatePaymentOrder,
   apiCreateBlock,
   apiCreateBooking,
   apiDeleteBlock,
   apiDeleteBooking,
   apiGetActiveBookings,
   apiGetAdminBookings,
+  apiGetAdminAnalytics,
   apiGetBlockedSlots,
+  apiGetGuestBookings,
   apiGetInventory,
+  apiDownloadGuestInvoice,
   apiLogin,
+  apiRequestGuestOtp,
   apiSubmitFeedback,
+  apiVerifyGuestOtp,
 } from './api.js';
 
 const currentPage = ref('home');
@@ -20,13 +26,33 @@ const bookings = ref([]);
 const blockedSlots = ref([]);
 const activeBookings = ref([]);
 const selectedShowcaseSpace = ref(null);
+const analytics = ref({
+  summary: {
+    totalBookings: 0,
+    activeBookings: 0,
+    paidRevenue: 0,
+    pendingPayments: 0,
+  },
+  bookingsBySpace: [],
+  mealDemand: { breakfast: 0, lunch: 0, dinner: 0 },
+  monthlyRevenue: [],
+});
 
 const auth = ref(loadAuth());
+const guestAuth = ref(loadGuestAuth());
 const adminUsername = ref('');
 const adminPassword = ref('');
 
 const bookingForm = ref(getEmptyBookingForm());
 const feedbackForm = ref({ bookingId: '', note: '' });
+const guestLoginForm = ref({
+  guestName: '',
+  guestEmail: '',
+  guestPhone: '',
+  otpCode: '',
+});
+const otpRequested = ref(false);
+const guestBookings = ref([]);
 const blockForm = ref({
   eventName: '',
   spaceId: '',
@@ -51,6 +77,7 @@ const activeBlockCount = computed(() =>
 const isAdmin = computed(() => auth.value.role === 'admin');
 const isManager = computed(() => auth.value.role === 'manager');
 const canViewAdminData = computed(() => isAdmin.value || isManager.value);
+const isGuestLoggedIn = computed(() => Boolean(guestAuth.value.token));
 const selectedSpaceDetails = computed(() =>
   inventory.value.find((item) => item.id === bookingForm.value.selectedSpaceId) || null
 );
@@ -112,6 +139,8 @@ const heroBackgroundStyle = computed(() => ({
 function getEmptyBookingForm() {
   return {
     guestName: '',
+    guestEmail: '',
+    guestPhone: '',
     branch: '',
     idProofType: '',
     idProofNumber: '',
@@ -129,6 +158,9 @@ function getEmptyBookingForm() {
     cardNumber: '',
     cardExpiry: '',
     cardCvv: '',
+    razorpayOrderId: '',
+    razorpayPaymentId: '',
+    razorpaySignature: '',
   };
 }
 
@@ -152,6 +184,29 @@ function saveAuth(value) {
 
 function clearAuth() {
   saveAuth({ token: '', role: '', username: '' });
+}
+
+function loadGuestAuth() {
+  try {
+    const parsed = JSON.parse(sessionStorage.getItem('ima_guest_auth') || '{}');
+    return {
+      token: parsed.token || '',
+      guestName: parsed.guestName || '',
+      guestEmail: parsed.guestEmail || '',
+      guestPhone: parsed.guestPhone || '',
+    };
+  } catch {
+    return { token: '', guestName: '', guestEmail: '', guestPhone: '' };
+  }
+}
+
+function saveGuestAuth(value) {
+  guestAuth.value = value;
+  sessionStorage.setItem('ima_guest_auth', JSON.stringify(value));
+}
+
+function clearGuestAuth() {
+  saveGuestAuth({ token: '', guestName: '', guestEmail: '', guestPhone: '' });
 }
 
 function notify(message) {
@@ -228,6 +283,9 @@ function resetPaymentDetails() {
   bookingForm.value.cardNumber = '';
   bookingForm.value.cardExpiry = '';
   bookingForm.value.cardCvv = '';
+  bookingForm.value.razorpayOrderId = '';
+  bookingForm.value.razorpayPaymentId = '';
+  bookingForm.value.razorpaySignature = '';
 }
 
 function onPaymentMethodChange() {
@@ -257,6 +315,11 @@ function validateBooking() {
 
   if (!bookingForm.value.meals.length) {
     notify('Select at least one meal: breakfast, lunch, or dinner.');
+    return false;
+  }
+
+  if (!bookingForm.value.guestEmail.trim() || !bookingForm.value.guestPhone.trim()) {
+    notify('Guest phone and email are required.');
     return false;
   }
 
@@ -296,10 +359,81 @@ async function loadAdminBookings() {
   bookings.value = response.bookings;
 }
 
+async function loadAdminAnalytics() {
+  if (!auth.value.token || !canViewAdminData.value) {
+    analytics.value = {
+      summary: { totalBookings: 0, activeBookings: 0, paidRevenue: 0, pendingPayments: 0 },
+      bookingsBySpace: [],
+      mealDemand: { breakfast: 0, lunch: 0, dinner: 0 },
+      monthlyRevenue: [],
+    };
+    return;
+  }
+  const response = await apiGetAdminAnalytics(auth.value.token);
+  analytics.value = response;
+}
+
+async function ensureRazorpayScript() {
+  if (window.Razorpay) return;
+  await new Promise((resolve, reject) => {
+    const existing = document.querySelector('script[data-razorpay-sdk]');
+    if (existing) {
+      existing.addEventListener('load', resolve);
+      existing.addEventListener('error', () => reject(new Error('Unable to load Razorpay SDK.')));
+      return;
+    }
+    const script = document.createElement('script');
+    script.src = 'https://checkout.razorpay.com/v1/checkout.js';
+    script.async = true;
+    script.setAttribute('data-razorpay-sdk', 'true');
+    script.onload = resolve;
+    script.onerror = () => reject(new Error('Unable to load Razorpay SDK.'));
+    document.head.appendChild(script);
+  });
+}
+
+async function collectRazorpayPayment() {
+  await ensureRazorpayScript();
+  const order = await apiCreatePaymentOrder({
+    selectedSpaceId: bookingForm.value.selectedSpaceId,
+    checkinDateTime: bookingForm.value.checkinDateTime,
+    checkoutDateTime: bookingForm.value.checkoutDateTime,
+  });
+
+  return new Promise((resolve, reject) => {
+    const razorpay = new window.Razorpay({
+      key: order.keyId,
+      amount: order.amountPaise,
+      currency: order.currency,
+      name: 'IMA Guesthouse',
+      description: order.summary,
+      order_id: order.orderId,
+      prefill: {
+        name: bookingForm.value.guestName,
+        email: bookingForm.value.guestEmail,
+        contact: bookingForm.value.guestPhone,
+      },
+      handler: (response) => {
+        resolve({
+          orderId: response.razorpay_order_id,
+          paymentId: response.razorpay_payment_id,
+          signature: response.razorpay_signature,
+        });
+      },
+      modal: {
+        ondismiss: () => reject(new Error('Payment was cancelled.')),
+      },
+      theme: { color: '#0b8d73' },
+    });
+
+    razorpay.open();
+  });
+}
+
 async function submitBooking() {
   if (!validateBooking()) return;
 
-  const paymentDetails =
+  let paymentDetails =
     bookingForm.value.paymentMethod === 'Google Pay / UPI'
       ? {
           upiId: bookingForm.value.upiId,
@@ -316,8 +450,14 @@ async function submitBooking() {
           };
 
   try {
+    if (bookingForm.value.paymentMethod === 'Razorpay Gateway') {
+      paymentDetails = await collectRazorpayPayment();
+    }
+
     await apiCreateBooking({
       guestName: bookingForm.value.guestName,
+      guestEmail: bookingForm.value.guestEmail,
+      guestPhone: bookingForm.value.guestPhone,
       branch: bookingForm.value.branch,
       idProofType: bookingForm.value.idProofType,
       idProofNumber: bookingForm.value.idProofNumber,
@@ -336,8 +476,9 @@ async function submitBooking() {
     await loadPublicData();
     if (canViewAdminData.value) {
       await loadAdminBookings();
+      await loadAdminAnalytics();
     }
-    notify('Booking saved to database successfully.');
+    notify('Booking confirmed. Email has been sent to secretary@imatnsb-hqgh.com.');
   } catch (error) {
     notify(error.message || 'Booking failed.');
   }
@@ -359,6 +500,7 @@ async function submitFeedback() {
     await loadPublicData();
     if (canViewAdminData.value) {
       await loadAdminBookings();
+      await loadAdminAnalytics();
     }
     notify('Feedback saved to database.');
   } catch (error) {
@@ -381,7 +523,7 @@ async function adminLogin() {
     });
     adminUsername.value = '';
     adminPassword.value = '';
-    await loadAdminBookings();
+    await Promise.all([loadAdminBookings(), loadAdminAnalytics()]);
     notify(`Logged in as ${response.user.role}.`);
   } catch (error) {
     notify(error.message || 'Login failed.');
@@ -391,6 +533,12 @@ async function adminLogin() {
 function adminLogout() {
   clearAuth();
   bookings.value = [];
+  analytics.value = {
+    summary: { totalBookings: 0, activeBookings: 0, paidRevenue: 0, pendingPayments: 0 },
+    bookingsBySpace: [],
+    mealDemand: { breakfast: 0, lunch: 0, dinner: 0 },
+    monthlyRevenue: [],
+  };
   notify('Logged out successfully.');
 }
 
@@ -433,7 +581,7 @@ async function cancelBooking(bookingId) {
 
   try {
     await apiDeleteBooking(auth.value.token, bookingId);
-    await loadAdminBookings();
+    await Promise.all([loadAdminBookings(), loadAdminAnalytics()]);
     await loadPublicData();
     notify('Booking cancelled by admin.');
   } catch (error) {
@@ -445,12 +593,84 @@ function displayDate(input) {
   return new Date(input).toLocaleString();
 }
 
+async function requestOtp() {
+  try {
+    if (
+      !guestLoginForm.value.guestName.trim() ||
+      !guestLoginForm.value.guestEmail.trim() ||
+      !guestLoginForm.value.guestPhone.trim()
+    ) {
+      notify('Guest name, email and phone are required for OTP.');
+      return;
+    }
+
+    await apiRequestGuestOtp(guestLoginForm.value);
+    otpRequested.value = true;
+    notify('OTP sent. Check your email and enter OTP to continue.');
+  } catch (error) {
+    notify(error.message || 'Unable to generate OTP.');
+  }
+}
+
+async function verifyOtpAndLogin() {
+  try {
+    const response = await apiVerifyGuestOtp(guestLoginForm.value);
+    saveGuestAuth({
+      token: response.token,
+      guestName: response.guest.guestName,
+      guestEmail: response.guest.guestEmail,
+      guestPhone: response.guest.guestPhone,
+    });
+    await loadGuestBookings();
+    notify('Guest login successful.');
+  } catch (error) {
+    notify(error.message || 'OTP verification failed.');
+  }
+}
+
+async function loadGuestBookings() {
+  if (!guestAuth.value.token) {
+    guestBookings.value = [];
+    return;
+  }
+
+  const response = await apiGetGuestBookings(guestAuth.value.token);
+  guestBookings.value = response.bookings;
+}
+
+async function downloadInvoice(bookingId) {
+  try {
+    const blob = await apiDownloadGuestInvoice(guestAuth.value.token, bookingId);
+    const url = window.URL.createObjectURL(blob);
+    const anchor = document.createElement('a');
+    anchor.href = url;
+    anchor.download = `${bookingId}.pdf`;
+    document.body.appendChild(anchor);
+    anchor.click();
+    anchor.remove();
+    window.URL.revokeObjectURL(url);
+    notify('Invoice downloaded.');
+  } catch (error) {
+    notify(error.message || 'Unable to download invoice.');
+  }
+}
+
+function guestLogout() {
+  clearGuestAuth();
+  guestBookings.value = [];
+  otpRequested.value = false;
+  notify('Guest logged out.');
+}
+
 onMounted(async () => {
   try {
     startBootLoader();
     await loadPublicData();
     if (auth.value.token && canViewAdminData.value) {
-      await loadAdminBookings();
+      await Promise.all([loadAdminBookings(), loadAdminAnalytics()]);
+    }
+    if (guestAuth.value.token) {
+      await loadGuestBookings();
     }
     startQuoteRotation();
   } catch {
@@ -461,6 +681,7 @@ onMounted(async () => {
 onUnmounted(() => {
   stopQuoteRotation();
   clearInterval(loadingTimer);
+  clearTimeout(toastTimer);
 });
 </script>
 
@@ -496,6 +717,7 @@ onUnmounted(() => {
           <nav class="desktop-menu">
             <button class="nav-link" :class="{ active: currentPage === 'home' }" @click="goToPage('home')">Home</button>
             <button class="nav-link" :class="{ active: currentPage === 'booking' }" @click="goToPage('booking')">Book Rooms</button>
+            <button class="nav-link" :class="{ active: currentPage === 'guest' }" @click="goToPage('guest')">Guest Portal</button>
             <button class="nav-link" :class="{ active: currentPage === 'gallery' }" @click="goToPage('gallery')">Gallery</button>
             <button class="nav-link" :class="{ active: currentPage === 'contact' }" @click="goToPage('contact')">Contact</button>
             <button class="nav-link" :class="{ active: currentPage === 'admin' }" @click="goToPage('admin')">Admin</button>
@@ -511,6 +733,7 @@ onUnmounted(() => {
         <div v-if="isMenuOpen" class="mobile-menu">
           <button class="mobile-nav-link" @click="goToPage('home')">Home</button>
           <button class="mobile-nav-link" @click="goToPage('booking')">Book Rooms</button>
+          <button class="mobile-nav-link" @click="goToPage('guest')">Guest Portal</button>
           <button class="mobile-nav-link" @click="goToPage('gallery')">Gallery</button>
           <button class="mobile-nav-link" @click="goToPage('contact')">Contact</button>
           <button class="mobile-nav-link" @click="goToPage('admin')">Admin</button>
@@ -641,6 +864,16 @@ onUnmounted(() => {
               </label>
 
               <label>
+                Guest email
+                <input v-model.trim="bookingForm.guestEmail" type="email" required />
+              </label>
+
+              <label>
+                Guest phone
+                <input v-model.trim="bookingForm.guestPhone" type="tel" required />
+              </label>
+
+              <label>
                 Branch
                 <input v-model.trim="bookingForm.branch" type="text" required />
               </label>
@@ -743,12 +976,19 @@ onUnmounted(() => {
                 Payment details
                 <select v-model="bookingForm.paymentMethod" required @change="onPaymentMethodChange">
                   <option value="">Select</option>
+                  <option>Razorpay Gateway</option>
                   <option>Google Pay / UPI</option>
                   <option>Card / Credit</option>
                   <option>Pay on Arrival</option>
                 </select>
               </label>
             </div>
+
+            <transition name="slide-fade">
+              <p v-if="bookingForm.paymentMethod === 'Razorpay Gateway'" class="pay-note">
+                Secure Razorpay checkout supports UPI, cards, and net banking.
+              </p>
+            </transition>
 
             <transition name="slide-fade">
               <div v-if="bookingForm.paymentMethod === 'Google Pay / UPI'" class="grid pay-grid">
@@ -852,6 +1092,63 @@ onUnmounted(() => {
         </section>
       </template>
 
+      <template v-else-if="currentPage === 'guest'">
+        <section class="section fade-up">
+          <div class="panel-head">
+            <h3>Guest Portal</h3>
+            <p>Login with OTP to view booking history and download invoices.</p>
+          </div>
+
+          <div v-if="!isGuestLoggedIn" class="admin-login">
+            <label>
+              Guest name
+              <input v-model.trim="guestLoginForm.guestName" type="text" />
+            </label>
+            <label>
+              Guest email
+              <input v-model.trim="guestLoginForm.guestEmail" type="email" />
+            </label>
+            <label>
+              Guest phone
+              <input v-model.trim="guestLoginForm.guestPhone" type="tel" />
+            </label>
+            <button type="button" class="primary-btn" @click="requestOtp">Request OTP</button>
+
+            <label v-if="otpRequested">
+              Enter OTP
+              <input v-model.trim="guestLoginForm.otpCode" type="text" />
+            </label>
+            <button v-if="otpRequested" type="button" class="secondary-btn" @click="verifyOtpAndLogin">
+              Verify OTP & Login
+            </button>
+          </div>
+
+          <template v-else>
+            <div class="admin-head-actions">
+              <p class="muted">
+                Logged in as {{ guestAuth.guestName }} · {{ guestAuth.guestPhone }}
+              </p>
+              <button type="button" class="secondary-btn" @click="guestLogout">Logout</button>
+            </div>
+
+            <section class="admin-section">
+              <h4>Your Booking History</h4>
+              <div class="simple-list">
+                <article v-for="booking in guestBookings" :key="booking.id" class="list-card">
+                  <strong>{{ booking.id }} · {{ booking.selectedSpaceLabel }}</strong>
+                  <p>{{ displayDate(booking.checkinDateTime) }} to {{ displayDate(booking.checkoutDateTime) }}</p>
+                  <p>Amount: INR {{ booking.totalAmount }} · Payment: {{ booking.paymentStatus }}</p>
+                  <button type="button" class="primary-btn" @click="downloadInvoice(booking.id)">
+                    Download Invoice
+                  </button>
+                </article>
+                <p v-if="guestBookings.length === 0" class="muted">No bookings found for your profile.</p>
+              </div>
+            </section>
+          </template>
+        </section>
+      </template>
+
       <template v-else-if="currentPage === 'gallery'">
         <section class="section fade-up">
           <div class="panel-head">
@@ -877,17 +1174,18 @@ onUnmounted(() => {
           </div>
           <div class="grid two-col">
             <div class="contact-card">
-              <h3>Front Desk</h3>
-              <p>+91 98765 43210</p>
-              <p>reservation@imaguesthouse.com</p>
+              <h3>Secretary Desk</h3>
+              <p>+91 96050 11223</p>
+              <p>secretary@imatnsb-hqgh.com</p>
+              <p>Available 24/7 for booking and event support</p>
             </div>
             <div class="contact-card">
-              <h3>Location</h3>
-              <p>IMA House, Medical Drive</p>
-              <p>New Delhi, 110002</p>
+              <h3>IMA TNSB Headquarters</h3>
+              <p>IMA State Guesthouse, TNSB HQ Campus</p>
+              <p>Thiruvananthapuram, Kerala</p>
               <a
                 class="map-link"
-                href="https://maps.google.com/?q=Indian+Medical+Association+New+Delhi"
+                href="https://maps.google.com/?q=IMA+TNSB+Headquarters"
                 target="_blank"
                 rel="noopener noreferrer"
               >
@@ -904,7 +1202,7 @@ onUnmounted(() => {
             <div class="map-frame">
               <iframe
                 title="IMA Guesthouse location map"
-                src="https://www.google.com/maps?q=Indian%20Medical%20Association%20New%20Delhi&output=embed"
+                src="https://www.google.com/maps?q=IMA%20TNSB%20Headquarters&output=embed"
                 loading="lazy"
                 referrerpolicy="no-referrer-when-downgrade"
               ></iframe>
@@ -941,6 +1239,53 @@ onUnmounted(() => {
               </p>
               <button type="button" class="secondary-btn" @click="adminLogout">Logout</button>
             </div>
+
+            <section class="admin-section analytics-section">
+              <h4>Live Analytics</h4>
+              <div class="grid analytics-cards">
+                <article class="card">
+                  <div class="card-content">
+                    <h3>{{ analytics.summary.totalBookings }}</h3>
+                    <p>Total Bookings</p>
+                  </div>
+                </article>
+                <article class="card">
+                  <div class="card-content">
+                    <h3>{{ analytics.summary.activeBookings }}</h3>
+                    <p>Active Bookings</p>
+                  </div>
+                </article>
+                <article class="card">
+                  <div class="card-content">
+                    <h3>INR {{ analytics.summary.paidRevenue }}</h3>
+                    <p>Revenue (Paid)</p>
+                  </div>
+                </article>
+                <article class="card">
+                  <div class="card-content">
+                    <h3>{{ analytics.summary.pendingPayments }}</h3>
+                    <p>Pending Payments</p>
+                  </div>
+                </article>
+              </div>
+              <div class="grid analytics-cards">
+                <article class="list-card">
+                  <strong>Bookings by Space</strong>
+                  <p
+                    v-for="item in analytics.bookingsBySpace"
+                    :key="`space-${item.label}`"
+                  >
+                    {{ item.label }}: {{ item.count }}
+                  </p>
+                </article>
+                <article class="list-card">
+                  <strong>Meal Demand</strong>
+                  <p>Breakfast: {{ analytics.mealDemand.breakfast }}</p>
+                  <p>Lunch: {{ analytics.mealDemand.lunch }}</p>
+                  <p>Dinner: {{ analytics.mealDemand.dinner }}</p>
+                </article>
+              </div>
+            </section>
 
             <div class="admin-grid">
               <section class="admin-section">

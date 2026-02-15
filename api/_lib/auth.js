@@ -15,6 +15,20 @@ export function signAuthToken(user) {
   );
 }
 
+export function signGuestToken(guest) {
+  return jwt.sign(
+    {
+      sub: guest.id || guest.guestPhone,
+      role: 'guest',
+      guestName: guest.guestName,
+      guestPhone: guest.guestPhone,
+      guestEmail: guest.guestEmail || '',
+    },
+    JWT_SECRET,
+    { expiresIn: '24h' }
+  );
+}
+
 export function verifyAuthToken(token) {
   return jwt.verify(token, JWT_SECRET);
 }

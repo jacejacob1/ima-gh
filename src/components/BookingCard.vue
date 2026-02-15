@@ -20,6 +20,7 @@ const emit = defineEmits(['cancel-booking']);
 <template>
   <article class="booking-card">
     <strong>{{ booking.guestName }} · {{ booking.branch }}</strong>
+    <p class="muted">{{ booking.guestPhone || 'No phone' }} · {{ booking.guestEmail || 'No email' }}</p>
     <p class="muted">{{ booking.hallOrRoom }}: {{ booking.selectedSpaceLabel }}</p>
     <p>
       Checkin: {{ displayDate(booking.checkinDateTime) }}<br />
@@ -29,7 +30,11 @@ const emit = defineEmits(['cancel-booking']);
       Food: {{ booking.foodPreference }} · Meals:
       {{ booking.meals.join(', ') }}
     </p>
-    <p>Cab: {{ booking.cabService }} · Payment: {{ booking.paymentMethod }}</p>
+    <p>
+      Cab: {{ booking.cabService }} · Payment: {{ booking.paymentMethod }}
+      ({{ booking.paymentStatus || 'pending' }})
+    </p>
+    <p>Amount: INR {{ booking.totalAmount || 0 }} · Invoice: {{ booking.invoiceNumber || 'Pending' }}</p>
     <p>Feedback: {{ booking.feedback || 'Not submitted' }}</p>
 
     <button

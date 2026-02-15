@@ -14,7 +14,10 @@
   "dependencies": {
     "bcryptjs": "^2.4.3",
     "jsonwebtoken": "^9.0.2",
+    "nodemailer": "^8.0.1",
+    "pdfkit": "^0.17.2",
     "pg": "^8.18.0",
+    "razorpay": "^2.9.6",
     "vue": "^3.5.13"
   },
   "devDependencies": {

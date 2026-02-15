@@ -1,5 +1,8 @@
+import crypto from 'node:crypto';
 import { query } from '../_lib/db.js';
 import { selectedSpaceLabel } from '../_lib/inventory.js';
+import { computeBookingAmount } from '../_lib/pricing.js';
+import { sendBookingConfirmation } from '../_lib/email.js';
 import { badRequest, isValidDateRange, json, methodNotAllowed, toIso } from '../_lib/http.js';
 
 async function hasBookingConflict(spaceId, checkinIso, checkoutIso) {
@@ -34,6 +37,17 @@ async function blockConflict(spaceId, checkinIso, checkoutIso) {
   return result.rows[0] || null;
 }
 
+function verifyRazorpayPayment(paymentDetails) {
+  const secret = process.env.RAZORPAY_KEY_SECRET;
+  if (!secret) {
+    throw new Error('Razorpay secret is not configured on server.');
+  }
+
+  const body = `${paymentDetails.orderId}|${paymentDetails.paymentId}`;
+  const expectedSignature = crypto.createHmac('sha256', secret).update(body).digest('hex');
+  return expectedSignature === paymentDetails.signature;
+}
+
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
     return methodNotAllowed(res, ['POST']);
@@ -42,6 +56,8 @@ export default async function handler(req, res) {
   const payload = req.body || {};
   const requiredFields = [
     'guestName',
+    'guestPhone',
+    'guestEmail',
     'branch',
     'idProofType',
     'idProofNumber',
@@ -79,9 +95,36 @@ export default async function handler(req, res) {
     return json(res, 409, { message: 'Selected slot already has a booking.' });
   }
 
+  const amount = computeBookingAmount(String(payload.selectedSpaceId), checkinIso, checkoutIso);
+
+  let paymentStatus = payload.paymentMethod === 'Pay on Arrival' ? 'pending' : 'paid';
+  let paymentProvider = 'manual';
+  let paymentReference = '';
+
+  if (payload.paymentMethod === 'Razorpay Gateway') {
+    const details = payload.paymentDetails || {};
+    if (!details.orderId || !details.paymentId || !details.signature) {
+      return badRequest(res, 'Razorpay payment details are required.');
+    }
+
+    if (!verifyRazorpayPayment(details)) {
+      return badRequest(res, 'Razorpay signature verification failed.');
+    }
+
+    paymentStatus = 'paid';
+    paymentProvider = 'razorpay';
+    paymentReference = details.paymentId;
+  } else if (payload.paymentMethod === 'Google Pay / UPI' || payload.paymentMethod === 'Card / Credit') {
+    paymentProvider = 'manual';
+    paymentReference = String((payload.paymentDetails || {}).transactionRef || '');
+  }
+
   const booking = {
     id: `BK-${Date.now()}`,
+    invoiceNumber: `INV-${Date.now()}`,
     guestName: String(payload.guestName).trim(),
+    guestEmail: String(payload.guestEmail).trim(),
+    guestPhone: String(payload.guestPhone).trim(),
     branch: String(payload.branch).trim(),
     idProofType: String(payload.idProofType),
     idProofNumber: String(payload.idProofNumber).trim(),
@@ -90,10 +133,14 @@ export default async function handler(req, res) {
     selectedSpaceLabel: selectedSpaceLabel(String(payload.selectedSpaceId)),
     checkinDateTime: checkinIso,
     checkoutDateTime: checkoutIso,
+    totalAmount: amount.amountInr,
     foodPreference: String(payload.foodPreference),
     meals: payload.meals,
     cabService: String(payload.cabService),
     paymentMethod: String(payload.paymentMethod),
+    paymentStatus,
+    paymentProvider,
+    paymentReference,
     paymentDetails: payload.paymentDetails || {},
     feedback: '',
     createdAt: new Date().toISOString(),
@@ -104,6 +151,8 @@ export default async function handler(req, res) {
       INSERT INTO bookings (
         id,
         guest_name,
+        guest_email,
+        guest_phone,
         branch,
         id_proof_type,
         id_proof_number,
@@ -112,22 +161,30 @@ export default async function handler(req, res) {
         selected_space_label,
         checkin_datetime,
         checkout_datetime,
+        total_amount,
         food_preference,
         meals_json,
         cab_service,
         payment_method,
+        payment_status,
+        payment_provider,
+        payment_reference,
         payment_details_json,
+        invoice_number,
         feedback_text,
         created_at
       )
       VALUES (
         $1, $2, $3, $4, $5, $6, $7, $8,
-        $9::timestamptz, $10::timestamptz, $11, $12::jsonb, $13, $14, $15::jsonb, $16, $17::timestamptz
+        $9, $10, $11::timestamptz, $12::timestamptz, $13,
+        $14, $15::jsonb, $16, $17, $18, $19, $20, $21::jsonb, $22, $23, $24::timestamptz
       )
     `,
     [
       booking.id,
       booking.guestName,
+      booking.guestEmail,
+      booking.guestPhone,
       booking.branch,
       booking.idProofType,
       booking.idProofNumber,
@@ -136,15 +193,40 @@ export default async function handler(req, res) {
       booking.selectedSpaceLabel,
       booking.checkinDateTime,
       booking.checkoutDateTime,
+      booking.totalAmount,
       booking.foodPreference,
       JSON.stringify(booking.meals),
       booking.cabService,
       booking.paymentMethod,
+      booking.paymentStatus,
+      booking.paymentProvider,
+      booking.paymentReference,
       JSON.stringify(booking.paymentDetails),
+      booking.invoiceNumber,
       booking.feedback,
       booking.createdAt,
     ]
   );
 
-  return json(res, 201, { booking });
+  await query(
+    `
+      INSERT INTO guest_users (guest_name, guest_email, guest_phone, last_login_at)
+      VALUES ($1, $2, $3, NOW())
+      ON CONFLICT (guest_phone)
+      DO UPDATE SET guest_name = EXCLUDED.guest_name, guest_email = EXCLUDED.guest_email, last_login_at = NOW()
+    `,
+    [booking.guestName, booking.guestEmail, booking.guestPhone]
+  );
+
+  try {
+    await sendBookingConfirmation(booking);
+  } catch {
+    // Booking should still succeed if email fails.
+  }
+
+  return json(res, 201, {
+    booking,
+    amountSummary: amount.summary,
+    message: 'Booking confirmed. Confirmation email sent to secretary@imatnsb-hqgh.com.',
+  });
 }

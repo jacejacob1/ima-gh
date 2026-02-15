@@ -4,10 +4,12 @@
 
 - Public room/hall listing and booking details page
 - Booking + guest details persisted to managed Postgres (Neon/Supabase)
+- Razorpay checkout integration for UPI/cards/netbanking
+- OTP-based guest portal login (email OTP), booking history, invoice PDF download
+- Booking confirmation and OTP emails (secretary + guest)
 - Pre-checkout feedback saved against bookings
-- Role-based backend auth (`admin`, `manager`)
-- Admin dashboard for room/hall blocking and booking management
-- Vercel-ready full stack deployment (frontend + API functions)
+- Role-based backend auth (`admin`, `manager`, `guest`)
+- Admin dashboard with booking management + analytics (occupancy, revenue, meals)
 
 ## Default users
 
@@ -22,7 +24,12 @@ Copy `.env.example` to `.env` (for local `vercel dev`) and set:
 
 - `DATABASE_URL`: Postgres connection string (Neon or Supabase)
 - `JWT_SECRET`: JWT signing secret
-- `VITE_API_BASE_URL`: leave empty for same-origin in production
+- `VITE_API_BASE_URL`: keep empty for same-origin in production
+- `RAZORPAY_KEY_ID`, `RAZORPAY_KEY_SECRET`: Razorpay test/live credentials
+- `SMTP_HOST`, `SMTP_PORT`, `SMTP_SECURE`, `SMTP_USER`, `SMTP_PASS`: SMTP provider config
+- `MAIL_FROM`: sender identity
+- `BOOKING_ALERT_TO`: booking alert recipient (`secretary@imatnsb-hqgh.com`)
+- `OTP_DEBUG`: set `true` only in test to return OTP in API response
 
 ## Local development
 
@@ -31,7 +38,7 @@ npm install
 npx vercel dev
 ```
 
-This runs both frontend and API routes together locally.
+This runs frontend and API routes together locally.
 
 ## Scripts
 
@@ -47,7 +54,11 @@ This runs both frontend and API routes together locally.
 2. Project settings -> Environment Variables:
    - `DATABASE_URL`
    - `JWT_SECRET`
+   - `RAZORPAY_KEY_ID`
+   - `RAZORPAY_KEY_SECRET`
+   - SMTP variables (`SMTP_*`, `MAIL_FROM`)
+   - `BOOKING_ALERT_TO=secretary@imatnsb-hqgh.com`
    - `VITE_API_BASE_URL` (empty)
 3. Redeploy.
 
-The frontend and backend API will run in one Vercel project.
+The frontend and backend API run in one Vercel project.

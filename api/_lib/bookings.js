@@ -1,0 +1,28 @@
+export function serializeBooking(row) {
+  return {
+    id: row.id,
+    guestName: row.guest_name,
+    guestEmail: row.guest_email,
+    guestPhone: row.guest_phone,
+    branch: row.branch,
+    idProofType: row.id_proof_type,
+    idProofNumber: row.id_proof_number,
+    hallOrRoom: row.hall_or_room,
+    selectedSpaceId: row.selected_space_id,
+    selectedSpaceLabel: row.selected_space_label,
+    checkinDateTime: row.checkin_datetime,
+    checkoutDateTime: row.checkout_datetime,
+    totalAmount: row.total_amount,
+    foodPreference: row.food_preference,
+    meals: row.meals_json,
+    cabService: row.cab_service,
+    paymentMethod: row.payment_method,
+    paymentStatus: row.payment_status,
+    paymentProvider: row.payment_provider,
+    paymentReference: row.payment_reference,
+    paymentDetails: row.payment_details_json,
+    invoiceNumber: row.invoice_number,
+    feedback: row.feedback_text,
+    createdAt: row.created_at,
+  };
+}
