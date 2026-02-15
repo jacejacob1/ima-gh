@@ -18,10 +18,13 @@ import { buildInvoiceBuffer } from '../lib/invoice.js';
 import { computeBookingAmount } from '../lib/pricing.js';
 
 function segmentsFromReq(req) {
-  const value = req.query.route;
+  const value = req.query?.route;
   if (Array.isArray(value)) return value;
   if (typeof value === 'string' && value.trim()) return [value.trim()];
-  return [];
+  const rawPath = String(req.url || '').split('?')[0];
+  const normalized = rawPath.replace(/^\/api\/?/, '');
+  if (!normalized) return [];
+  return normalized.split('/').filter(Boolean);
 }
 
 function normalizePhone(value) {

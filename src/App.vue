@@ -432,9 +432,9 @@ async function loadPublicData() {
     apiGetBlockedSlots(),
     apiGetActiveBookings(),
   ]);
-  inventory.value = inventoryResponse.inventory;
-  blockedSlots.value = blocksResponse.blockedSlots;
-  activeBookings.value = activeResponse.bookings;
+  inventory.value = Array.isArray(inventoryResponse?.inventory) ? inventoryResponse.inventory : [];
+  blockedSlots.value = Array.isArray(blocksResponse?.blockedSlots) ? blocksResponse.blockedSlots : [];
+  activeBookings.value = Array.isArray(activeResponse?.bookings) ? activeResponse.bookings : [];
 }
 
 async function loadAdminBookings() {
@@ -444,7 +444,7 @@ async function loadAdminBookings() {
   }
 
   const response = await apiGetAdminBookings(auth.value.token);
-  bookings.value = response.bookings;
+  bookings.value = Array.isArray(response?.bookings) ? response.bookings : [];
 }
 
 async function loadAdminAnalytics() {
@@ -724,7 +724,7 @@ async function loadGuestBookings() {
   }
 
   const response = await apiGetGuestBookings(guestAuth.value.token);
-  guestBookings.value = response.bookings;
+  guestBookings.value = Array.isArray(response?.bookings) ? response.bookings : [];
 }
 
 async function downloadInvoice(bookingId) {
