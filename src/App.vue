@@ -44,6 +44,8 @@ const adminUsername = ref('');
 const adminPassword = ref('');
 
 const bookingForm = ref(getEmptyBookingForm());
+const BOOKING_TOTAL_STEPS = 5;
+const bookingStep = ref(1);
 const feedbackForm = ref({ bookingId: '', note: '' });
 const guestLoginForm = ref({
   guestName: '',
@@ -91,6 +93,19 @@ const galleryItems = computed(() =>
   )
 );
 const bookingChoices = computed(() => inventory.value);
+const bookingStepLabel = computed(() => {
+  const labels = {
+    1: 'Select Space',
+    2: 'Guest Details',
+    3: 'Stay Preferences',
+    4: 'Payment Method',
+    5: 'Review & Confirm',
+  };
+  return labels[bookingStep.value] || '';
+});
+const bookingProgress = computed(() =>
+  Math.round((bookingStep.value / BOOKING_TOTAL_STEPS) * 100)
+);
 const homeQuotes = [
   '“Where care meets comfort, every stay feels restorative.”',
   '“Designed for healers, built for peace, powered by service.”',
@@ -220,6 +235,9 @@ function notify(message) {
 function goToPage(page) {
   currentPage.value = page;
   isMenuOpen.value = false;
+  if (page === 'booking' && bookingStep.value < 1) {
+    bookingStep.value = 1;
+  }
 }
 
 function openSpaceDetails(space) {
@@ -298,10 +316,80 @@ function maskedCard(cardNumber) {
 
 function openBookingPage(space) {
   currentPage.value = 'booking';
+  bookingStep.value = 1;
   if (space) {
     bookingForm.value.hallOrRoom = space.type;
     bookingForm.value.selectedSpaceId = space.id;
   }
+}
+
+function validateBookingStep(step) {
+  if (step === 1) {
+    if (!bookingForm.value.hallOrRoom || !bookingForm.value.selectedSpaceId) {
+      notify('Select room/hall type and a specific option to continue.');
+      return false;
+    }
+  }
+
+  if (step === 2) {
+    if (
+      !bookingForm.value.guestName.trim() ||
+      !bookingForm.value.guestEmail.trim() ||
+      !bookingForm.value.guestPhone.trim() ||
+      !bookingForm.value.branch.trim() ||
+      !bookingForm.value.idProofType ||
+      !bookingForm.value.idProofNumber.trim()
+    ) {
+      notify('Complete all guest identity details to continue.');
+      return false;
+    }
+  }
+
+  if (step === 3) {
+    const checkin = new Date(bookingForm.value.checkinDateTime).getTime();
+    const checkout = new Date(bookingForm.value.checkoutDateTime).getTime();
+    if (!Number.isFinite(checkin) || !Number.isFinite(checkout) || checkout <= checkin) {
+      notify('Checkout must be after checkin date/time.');
+      return false;
+    }
+    if (!bookingForm.value.foodPreference || !bookingForm.value.cabService) {
+      notify('Select food preference and cab requirement.');
+      return false;
+    }
+    if (!bookingForm.value.meals.length) {
+      notify('Select at least one meal: breakfast, lunch, or dinner.');
+      return false;
+    }
+  }
+
+  if (step === 4) {
+    if (!bookingForm.value.paymentMethod) {
+      notify('Select a payment method.');
+      return false;
+    }
+    if (bookingForm.value.paymentMethod === 'Google Pay / UPI' && !bookingForm.value.upiId.trim()) {
+      notify('UPI ID is required for Google Pay / UPI.');
+      return false;
+    }
+    if (
+      bookingForm.value.paymentMethod === 'Card / Credit' &&
+      (!bookingForm.value.cardName.trim() || !bookingForm.value.cardNumber.trim())
+    ) {
+      notify('Card holder name and card number are required.');
+      return false;
+    }
+  }
+
+  return true;
+}
+
+function nextBookingStep() {
+  if (!validateBookingStep(bookingStep.value)) return;
+  bookingStep.value = Math.min(BOOKING_TOTAL_STEPS, bookingStep.value + 1);
+}
+
+function previousBookingStep() {
+  bookingStep.value = Math.max(1, bookingStep.value - 1);
 }
 
 function validateBooking() {
@@ -473,6 +561,7 @@ async function submitBooking() {
     });
 
     bookingForm.value = getEmptyBookingForm();
+    bookingStep.value = 1;
     await loadPublicData();
     if (canViewAdminData.value) {
       await loadAdminBookings();
@@ -838,209 +927,279 @@ onUnmounted(() => {
               <p>Reserve your spot.</p>
             </div>
 
-          <div class="booking-select-grid">
-            <article
-              v-for="space in bookingChoices"
-              :key="`booking-${space.id}`"
-              class="booking-select-card"
-              :class="{ 'booking-select-card-active': bookingForm.selectedSpaceId === space.id }"
-            >
-              <img :src="space.image" :alt="space.name" loading="lazy" />
-              <div>
-                <strong>{{ space.name }}</strong>
-                <p>{{ space.rate }}</p>
-              </div>
-              <button type="button" class="card-book-btn" @click="selectBookingSpace(space)">
-                Choose {{ space.type === 'Room' ? 'Room' : 'Hall' }}
-              </button>
-            </article>
-          </div>
-
-          <form class="booking-form" @submit.prevent="submitBooking">
-            <div class="grid two-col">
-              <label>
-                Guest name
-                <input v-model.trim="bookingForm.guestName" type="text" required />
-              </label>
-
-              <label>
-                Guest email
-                <input v-model.trim="bookingForm.guestEmail" type="email" required />
-              </label>
-
-              <label>
-                Guest phone
-                <input v-model.trim="bookingForm.guestPhone" type="tel" required />
-              </label>
-
-              <label>
-                Branch
-                <input v-model.trim="bookingForm.branch" type="text" required />
-              </label>
-
-              <label>
-                Id proof
-                <select v-model="bookingForm.idProofType" required>
-                  <option value="">Select</option>
-                  <option>Aadhaar</option>
-                  <option>PAN</option>
-                  <option>Passport</option>
-                  <option>Driving License</option>
-                  <option>Other</option>
-                </select>
-              </label>
-
-              <label>
-                Id proof number
-                <input v-model.trim="bookingForm.idProofNumber" type="text" required />
-              </label>
-
-              <label>
-                Hall / room
-                <select v-model="bookingForm.hallOrRoom" required @change="onSpaceTypeChange">
-                  <option value="">Select</option>
-                  <option value="Room">Room</option>
-                  <option value="Conference Hall">Conference Hall</option>
-                </select>
-              </label>
-
-              <label>
-                Option
-                <select v-model="bookingForm.selectedSpaceId" required>
-                  <option value="">Select</option>
-                  <option v-for="space in spacesForSelection" :key="space.id" :value="space.id">
-                    {{ space.name }}
-                  </option>
-                </select>
-              </label>
-
-              <label>
-                Checkin date and time
-                <input v-model="bookingForm.checkinDateTime" type="datetime-local" required />
-              </label>
-
-              <label>
-                Checkout date and time
-                <input v-model="bookingForm.checkoutDateTime" type="datetime-local" required />
-              </label>
-
-              <label>
-                Food preferences N/NV
-                <select v-model="bookingForm.foodPreference" required>
-                  <option value="">Select</option>
-                  <option value="N">N (Vegetarian)</option>
-                  <option value="NV">NV (Non-Vegetarian)</option>
-                </select>
-              </label>
-
-              <label>
-                Cab service needed
-                <select v-model="bookingForm.cabService" required>
-                  <option value="">Select</option>
-                  <option>Yes</option>
-                  <option>No</option>
-                </select>
-              </label>
-
-              <div class="meals-block">
-                <span class="meals-title">Breakfast / Lunch / Dinner</span>
-                <div class="checkbox-row">
-                  <label class="meal-option">
-                    <input
-                      type="checkbox"
-                      :checked="bookingForm.meals.includes('Breakfast')"
-                      @change="onMealToggle('Breakfast')"
-                    />
-                    Breakfast
-                  </label>
-                  <label class="meal-option">
-                    <input
-                      type="checkbox"
-                      :checked="bookingForm.meals.includes('Lunch')"
-                      @change="onMealToggle('Lunch')"
-                    />
-                    Lunch
-                  </label>
-                  <label class="meal-option">
-                    <input
-                      type="checkbox"
-                      :checked="bookingForm.meals.includes('Dinner')"
-                      @change="onMealToggle('Dinner')"
-                    />
-                    Dinner
-                  </label>
-                </div>
-              </div>
-
-              <label>
-                Payment details
-                <select v-model="bookingForm.paymentMethod" required @change="onPaymentMethodChange">
-                  <option value="">Select</option>
-                  <option>Razorpay Gateway</option>
-                  <option>Google Pay / UPI</option>
-                  <option>Card / Credit</option>
-                  <option>Pay on Arrival</option>
-                </select>
-              </label>
+          <form class="booking-form booking-wizard-form" @submit.prevent="submitBooking">
+            <div class="wizard-progress-track">
+              <div class="wizard-progress-fill" :style="{ width: `${bookingProgress}%` }"></div>
+            </div>
+            <div class="wizard-meta">
+              <strong>Step {{ bookingStep }} of {{ BOOKING_TOTAL_STEPS }}</strong>
+              <span>{{ bookingStepLabel }}</span>
             </div>
 
-            <transition name="slide-fade">
-              <p v-if="bookingForm.paymentMethod === 'Razorpay Gateway'" class="pay-note">
-                Secure Razorpay checkout supports UPI, cards, and net banking.
-              </p>
+            <transition name="wizard-step" mode="out-in">
+              <section :key="bookingStep" class="wizard-panel">
+                <template v-if="bookingStep === 1">
+                  <h4>Choose Your Space</h4>
+                  <div class="grid two-col">
+                    <label>
+                      Hall / room
+                      <select v-model="bookingForm.hallOrRoom" required @change="onSpaceTypeChange">
+                        <option value="">Select</option>
+                        <option value="Room">Room</option>
+                        <option value="Conference Hall">Conference Hall</option>
+                      </select>
+                    </label>
+
+                    <label>
+                      Option
+                      <select v-model="bookingForm.selectedSpaceId" required>
+                        <option value="">Select</option>
+                        <option v-for="space in spacesForSelection" :key="space.id" :value="space.id">
+                          {{ space.name }}
+                        </option>
+                      </select>
+                    </label>
+                  </div>
+
+                  <div class="booking-select-grid">
+                    <article
+                      v-for="space in bookingChoices"
+                      :key="`booking-${space.id}`"
+                      class="booking-select-card"
+                      :class="{ 'booking-select-card-active': bookingForm.selectedSpaceId === space.id }"
+                    >
+                      <img :src="space.image" :alt="space.name" loading="lazy" />
+                      <div>
+                        <strong>{{ space.name }}</strong>
+                        <p>{{ space.rate }}</p>
+                      </div>
+                      <button type="button" class="card-book-btn" @click="selectBookingSpace(space)">
+                        Choose {{ space.type === 'Room' ? 'Room' : 'Hall' }}
+                      </button>
+                    </article>
+                  </div>
+                </template>
+
+                <template v-else-if="bookingStep === 2">
+                  <h4>Guest Identity</h4>
+                  <div class="grid two-col">
+                    <label>
+                      Guest name
+                      <input v-model.trim="bookingForm.guestName" type="text" required />
+                    </label>
+
+                    <label>
+                      Guest email
+                      <input v-model.trim="bookingForm.guestEmail" type="email" required />
+                    </label>
+
+                    <label>
+                      Guest phone
+                      <input v-model.trim="bookingForm.guestPhone" type="tel" required />
+                    </label>
+
+                    <label>
+                      Branch
+                      <input v-model.trim="bookingForm.branch" type="text" required />
+                    </label>
+
+                    <label>
+                      Id proof
+                      <select v-model="bookingForm.idProofType" required>
+                        <option value="">Select</option>
+                        <option>Aadhaar</option>
+                        <option>PAN</option>
+                        <option>Passport</option>
+                        <option>Driving License</option>
+                        <option>Other</option>
+                      </select>
+                    </label>
+
+                    <label>
+                      Id proof number
+                      <input v-model.trim="bookingForm.idProofNumber" type="text" required />
+                    </label>
+                  </div>
+                </template>
+
+                <template v-else-if="bookingStep === 3">
+                  <h4>Stay Preferences</h4>
+                  <div class="grid two-col">
+                    <label>
+                      Checkin date and time
+                      <input v-model="bookingForm.checkinDateTime" type="datetime-local" required />
+                    </label>
+
+                    <label>
+                      Checkout date and time
+                      <input v-model="bookingForm.checkoutDateTime" type="datetime-local" required />
+                    </label>
+
+                    <label>
+                      Food preferences N/NV
+                      <select v-model="bookingForm.foodPreference" required>
+                        <option value="">Select</option>
+                        <option value="N">N (Vegetarian)</option>
+                        <option value="NV">NV (Non-Vegetarian)</option>
+                      </select>
+                    </label>
+
+                    <label>
+                      Cab service needed
+                      <select v-model="bookingForm.cabService" required>
+                        <option value="">Select</option>
+                        <option>Yes</option>
+                        <option>No</option>
+                      </select>
+                    </label>
+                  </div>
+
+                  <div class="meals-block">
+                    <span class="meals-title">Breakfast / Lunch / Dinner</span>
+                    <div class="checkbox-row">
+                      <label class="meal-option">
+                        <input
+                          type="checkbox"
+                          :checked="bookingForm.meals.includes('Breakfast')"
+                          @change="onMealToggle('Breakfast')"
+                        />
+                        Breakfast
+                      </label>
+                      <label class="meal-option">
+                        <input
+                          type="checkbox"
+                          :checked="bookingForm.meals.includes('Lunch')"
+                          @change="onMealToggle('Lunch')"
+                        />
+                        Lunch
+                      </label>
+                      <label class="meal-option">
+                        <input
+                          type="checkbox"
+                          :checked="bookingForm.meals.includes('Dinner')"
+                          @change="onMealToggle('Dinner')"
+                        />
+                        Dinner
+                      </label>
+                    </div>
+                  </div>
+                </template>
+
+                <template v-else-if="bookingStep === 4">
+                  <h4>Payment Selection</h4>
+                  <div class="grid two-col">
+                    <label>
+                      Payment details
+                      <select v-model="bookingForm.paymentMethod" required @change="onPaymentMethodChange">
+                        <option value="">Select</option>
+                        <option>Razorpay Gateway</option>
+                        <option>Google Pay / UPI</option>
+                        <option>Card / Credit</option>
+                        <option>Pay on Arrival</option>
+                      </select>
+                    </label>
+                  </div>
+
+                  <transition name="slide-fade">
+                    <p v-if="bookingForm.paymentMethod === 'Razorpay Gateway'" class="pay-note">
+                      Secure Razorpay checkout supports UPI, cards, and net banking.
+                    </p>
+                  </transition>
+
+                  <transition name="slide-fade">
+                    <div v-if="bookingForm.paymentMethod === 'Google Pay / UPI'" class="grid pay-grid">
+                      <label>
+                        UPI ID
+                        <input v-model.trim="bookingForm.upiId" type="text" placeholder="example@okbank" required />
+                      </label>
+                      <label>
+                        Transaction reference
+                        <input
+                          v-model.trim="bookingForm.transactionRef"
+                          type="text"
+                          placeholder="Optional before payment"
+                        />
+                      </label>
+                    </div>
+                  </transition>
+
+                  <transition name="slide-fade">
+                    <div v-if="bookingForm.paymentMethod === 'Card / Credit'" class="grid pay-grid">
+                      <label>
+                        Card holder name
+                        <input v-model.trim="bookingForm.cardName" type="text" required />
+                      </label>
+                      <label>
+                        Card number
+                        <input
+                          v-model.trim="bookingForm.cardNumber"
+                          type="text"
+                          minlength="12"
+                          maxlength="19"
+                          required
+                        />
+                      </label>
+                      <label>
+                        Expiry (MM/YY)
+                        <input v-model.trim="bookingForm.cardExpiry" type="text" placeholder="MM/YY" required />
+                      </label>
+                      <label>
+                        CVV
+                        <input
+                          v-model.trim="bookingForm.cardCvv"
+                          type="password"
+                          minlength="3"
+                          maxlength="4"
+                          required
+                        />
+                      </label>
+                    </div>
+                  </transition>
+
+                  <transition name="slide-fade">
+                    <p v-if="bookingForm.paymentMethod === 'Pay on Arrival'" class="pay-note">
+                      Guest will complete payment at reception before checkin.
+                    </p>
+                  </transition>
+                </template>
+
+                <template v-else>
+                  <h4>Review & Confirm</h4>
+                  <div class="list-card booking-review">
+                    <p><strong>Guest:</strong> {{ bookingForm.guestName }} · {{ bookingForm.branch }}</p>
+                    <p><strong>Contact:</strong> {{ bookingForm.guestPhone }} · {{ bookingForm.guestEmail }}</p>
+                    <p><strong>Space:</strong> {{ selectedSpaceDetails?.name || bookingForm.selectedSpaceId }}</p>
+                    <p>
+                      <strong>Stay:</strong>
+                      {{ bookingForm.checkinDateTime || 'N/A' }} to {{ bookingForm.checkoutDateTime || 'N/A' }}
+                    </p>
+                    <p><strong>Food:</strong> {{ bookingForm.foodPreference }} · {{ bookingForm.meals.join(', ') }}</p>
+                    <p><strong>Cab:</strong> {{ bookingForm.cabService }}</p>
+                    <p><strong>Payment:</strong> {{ bookingForm.paymentMethod }}</p>
+                  </div>
+                </template>
+              </section>
             </transition>
 
-            <transition name="slide-fade">
-              <div v-if="bookingForm.paymentMethod === 'Google Pay / UPI'" class="grid pay-grid">
-                <label>
-                  UPI ID
-                  <input v-model.trim="bookingForm.upiId" type="text" placeholder="example@okbank" required />
-                </label>
-                <label>
-                  Transaction reference
-                  <input
-                    v-model.trim="bookingForm.transactionRef"
-                    type="text"
-                    placeholder="Optional before payment"
-                  />
-                </label>
-              </div>
-            </transition>
-
-            <transition name="slide-fade">
-              <div v-if="bookingForm.paymentMethod === 'Card / Credit'" class="grid pay-grid">
-                <label>
-                  Card holder name
-                  <input v-model.trim="bookingForm.cardName" type="text" required />
-                </label>
-                <label>
-                  Card number
-                  <input v-model.trim="bookingForm.cardNumber" type="text" minlength="12" maxlength="19" required />
-                </label>
-                <label>
-                  Expiry (MM/YY)
-                  <input v-model.trim="bookingForm.cardExpiry" type="text" placeholder="MM/YY" required />
-                </label>
-                <label>
-                  CVV
-                  <input
-                    v-model.trim="bookingForm.cardCvv"
-                    type="password"
-                    minlength="3"
-                    maxlength="4"
-                    required
-                  />
-                </label>
-              </div>
-            </transition>
-
-            <transition name="slide-fade">
-              <p v-if="bookingForm.paymentMethod === 'Pay on Arrival'" class="pay-note">
-                Guest will complete payment at reception before checkin.
-              </p>
-            </transition>
-
-            <button type="submit" class="primary-btn">Confirm booking</button>
+            <div class="wizard-actions">
+              <button
+                type="button"
+                class="secondary-btn"
+                :disabled="bookingStep === 1"
+                @click="previousBookingStep"
+              >
+                Back
+              </button>
+              <button
+                v-if="bookingStep < BOOKING_TOTAL_STEPS"
+                type="button"
+                class="primary-btn"
+                @click="nextBookingStep"
+              >
+                Continue
+              </button>
+              <button v-else type="submit" class="primary-btn">Confirm booking</button>
+            </div>
           </form>
 
           <section v-if="selectedSpaceDetails" class="room-gallery">
