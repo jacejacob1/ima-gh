@@ -17,10 +17,24 @@ import { computeBookingAmount } from '../lib/pricing.js';
 
 function segmentsFromReq(req) {
   const value = req.query?.route;
-  if (Array.isArray(value)) return value;
-  if (typeof value === 'string' && value.trim()) return [value.trim()];
+  if (Array.isArray(value)) {
+    return value
+      .flatMap((part) => String(part || '').split('/'))
+      .map((part) => part.trim())
+      .filter(Boolean);
+  }
+  if (typeof value === 'string' && value.trim()) {
+    return value
+      .split('/')
+      .map((part) => part.trim())
+      .filter(Boolean);
+  }
   const rawPath = String(req.url || '').split('?')[0];
-  const normalized = rawPath.replace(/^\/api\/?/, '');
+  let normalized = rawPath.replace(/^\/api\/?/, '');
+  while (normalized.startsWith('api/')) {
+    normalized = normalized.slice(4);
+  }
+  if (normalized === 'api') normalized = '';
   if (!normalized) return [];
   return normalized.split('/').filter(Boolean);
 }
