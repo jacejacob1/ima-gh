@@ -4,7 +4,7 @@
 
 - Public room/hall listing and booking details page
 - Booking + guest details persisted to managed Postgres (Neon/Supabase)
-- Razorpay checkout integration for UPI/cards/netbanking
+- Google Pay / UPI scanner payment + Pay on Arrival option
 - OTP-based guest portal login (email OTP), booking history, invoice PDF download
 - Booking confirmation and OTP emails (secretary + guest)
 - Pre-checkout feedback saved against bookings
@@ -25,7 +25,8 @@ Copy `.env.example` to `.env` (for local `vercel dev`) and set:
 - `DATABASE_URL`: Postgres connection string (Neon or Supabase)
 - `JWT_SECRET`: JWT signing secret
 - `VITE_API_BASE_URL`: keep empty for same-origin in production
-- `RAZORPAY_KEY_ID`, `RAZORPAY_KEY_SECRET`: Razorpay test/live credentials
+- `VITE_IMA_UPI_ID`: UPI ID shown in booking payment step
+- `VITE_IMA_UPI_NAME`: payee name shown in UPI QR flow
 - `SMTP_HOST`, `SMTP_PORT`, `SMTP_SECURE`, `SMTP_USER`, `SMTP_PASS`: SMTP provider config
 - `MAIL_FROM`: sender identity
 - `BOOKING_ALERT_TO`: booking alert recipient (`secretary@imatnsb-hqgh.com`)
@@ -54,8 +55,8 @@ This runs frontend and API routes together locally.
 2. Project settings -> Environment Variables:
    - `DATABASE_URL`
    - `JWT_SECRET`
-   - `RAZORPAY_KEY_ID`
-   - `RAZORPAY_KEY_SECRET`
+   - `VITE_IMA_UPI_ID`
+   - `VITE_IMA_UPI_NAME`
    - SMTP variables (`SMTP_*`, `MAIL_FROM`)
    - `BOOKING_ALERT_TO=secretary@imatnsb-hqgh.com`
    - `VITE_API_BASE_URL` (empty)

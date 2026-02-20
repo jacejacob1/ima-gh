@@ -2,7 +2,6 @@
 import { computed, onMounted, onUnmounted, ref } from 'vue';
 import BookingCard from './components/BookingCard.vue';
 import {
-  apiCreatePaymentOrder,
   apiCreateBlock,
   apiCreateBooking,
   apiDeleteBlock,
@@ -44,7 +43,7 @@ const adminUsername = ref('');
 const adminPassword = ref('');
 
 const bookingForm = ref(getEmptyBookingForm());
-const BOOKING_TOTAL_STEPS = 5;
+const BOOKING_TOTAL_STEPS = 7;
 const bookingStep = ref(1);
 const feedbackForm = ref({ bookingId: '', note: '' });
 const guestLoginForm = ref({
@@ -95,11 +94,13 @@ const galleryItems = computed(() =>
 const bookingChoices = computed(() => inventory.value);
 const bookingStepLabel = computed(() => {
   const labels = {
-    1: 'Select Space',
-    2: 'Guest Details',
-    3: 'Stay Preferences',
-    4: 'Payment Method',
-    5: 'Review & Confirm',
+    1: 'Guest Name',
+    2: 'Guest Number',
+    3: 'Government ID Verification',
+    4: 'Select Space',
+    5: 'Stay Preferences',
+    6: 'Payment Method',
+    7: 'Review & Confirm',
   };
   return labels[bookingStep.value] || '';
 });
@@ -151,6 +152,43 @@ const heroBackgroundStyle = computed(() => ({
   backgroundImage: `url(${inventory.value[0]?.image || ''})`,
 }));
 
+const UPI_ID = import.meta.env.VITE_IMA_UPI_ID || 'secretary@imatnsb-hqgh.com';
+const UPI_PAYEE_NAME = import.meta.env.VITE_IMA_UPI_NAME || 'IMA Guesthouse';
+
+const estimatedAmountInr = computed(() => {
+  const selected = selectedSpaceDetails.value;
+  if (!selected) return 0;
+
+  const checkin = new Date(bookingForm.value.checkinDateTime).getTime();
+  const checkout = new Date(bookingForm.value.checkoutDateTime).getTime();
+  if (!Number.isFinite(checkin) || !Number.isFinite(checkout) || checkout <= checkin) return 0;
+
+  if (selected.type === 'Room') {
+    const dayMs = 24 * 60 * 60 * 1000;
+    const days = Math.max(1, Math.ceil((checkout - checkin) / dayMs));
+    return days * 2000;
+  }
+
+  const hours = (checkout - checkin) / (1000 * 60 * 60);
+  return hours <= 6 ? 40000 : 80000;
+});
+
+const upiPaymentUri = computed(() => {
+  const params = new URLSearchParams({
+    pa: UPI_ID,
+    pn: UPI_PAYEE_NAME,
+    cu: 'INR',
+  });
+  if (estimatedAmountInr.value > 0) {
+    params.set('am', String(estimatedAmountInr.value));
+  }
+  return `upi://pay?${params.toString()}`;
+});
+
+const upiQrImageUrl = computed(
+  () => `https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=${encodeURIComponent(upiPaymentUri.value)}`
+);
+
 function getEmptyBookingForm() {
   return {
     guestName: '',
@@ -167,15 +205,7 @@ function getEmptyBookingForm() {
     meals: [],
     cabService: '',
     paymentMethod: '',
-    upiId: '',
     transactionRef: '',
-    cardName: '',
-    cardNumber: '',
-    cardExpiry: '',
-    cardCvv: '',
-    razorpayOrderId: '',
-    razorpayPaymentId: '',
-    razorpaySignature: '',
   };
 }
 
@@ -295,23 +325,11 @@ function onMealToggle(meal) {
 }
 
 function resetPaymentDetails() {
-  bookingForm.value.upiId = '';
   bookingForm.value.transactionRef = '';
-  bookingForm.value.cardName = '';
-  bookingForm.value.cardNumber = '';
-  bookingForm.value.cardExpiry = '';
-  bookingForm.value.cardCvv = '';
-  bookingForm.value.razorpayOrderId = '';
-  bookingForm.value.razorpayPaymentId = '';
-  bookingForm.value.razorpaySignature = '';
 }
 
 function onPaymentMethodChange() {
   resetPaymentDetails();
-}
-
-function maskedCard(cardNumber) {
-  return cardNumber.replace(/.(?=.{4})/g, '*');
 }
 
 function openBookingPage(space) {
@@ -325,27 +343,40 @@ function openBookingPage(space) {
 
 function validateBookingStep(step) {
   if (step === 1) {
+    if (!bookingForm.value.guestName.trim()) {
+      notify('Guest name is required to continue.');
+      return false;
+    }
+  }
+
+  if (step === 2) {
+    const normalizedPhone = bookingForm.value.guestPhone.replace(/\D/g, '');
+    if (normalizedPhone.length < 10) {
+      notify('Enter a valid guest phone number to continue.');
+      return false;
+    }
+  }
+
+  if (step === 3) {
+    if (
+      !bookingForm.value.guestEmail.trim() ||
+      !bookingForm.value.branch.trim() ||
+      !bookingForm.value.idProofType ||
+      !bookingForm.value.idProofNumber.trim()
+    ) {
+      notify('Complete branch, email, and government ID details to continue.');
+      return false;
+    }
+  }
+
+  if (step === 4) {
     if (!bookingForm.value.hallOrRoom || !bookingForm.value.selectedSpaceId) {
       notify('Select room/hall type and a specific option to continue.');
       return false;
     }
   }
 
-  if (step === 2) {
-    if (
-      !bookingForm.value.guestName.trim() ||
-      !bookingForm.value.guestEmail.trim() ||
-      !bookingForm.value.guestPhone.trim() ||
-      !bookingForm.value.branch.trim() ||
-      !bookingForm.value.idProofType ||
-      !bookingForm.value.idProofNumber.trim()
-    ) {
-      notify('Complete all guest identity details to continue.');
-      return false;
-    }
-  }
-
-  if (step === 3) {
+  if (step === 5) {
     const checkin = new Date(bookingForm.value.checkinDateTime).getTime();
     const checkout = new Date(bookingForm.value.checkoutDateTime).getTime();
     if (!Number.isFinite(checkin) || !Number.isFinite(checkout) || checkout <= checkin) {
@@ -362,20 +393,20 @@ function validateBookingStep(step) {
     }
   }
 
-  if (step === 4) {
+  if (step === 6) {
     if (!bookingForm.value.paymentMethod) {
       notify('Select a payment method.');
       return false;
     }
-    if (bookingForm.value.paymentMethod === 'Google Pay / UPI' && !bookingForm.value.upiId.trim()) {
-      notify('UPI ID is required for Google Pay / UPI.');
+    if (!['Google Pay / UPI', 'Pay on Arrival'].includes(bookingForm.value.paymentMethod)) {
+      notify('Only Google Pay / UPI or Pay on Arrival is allowed.');
       return false;
     }
     if (
-      bookingForm.value.paymentMethod === 'Card / Credit' &&
-      (!bookingForm.value.cardName.trim() || !bookingForm.value.cardNumber.trim())
+      bookingForm.value.paymentMethod === 'Google Pay / UPI' &&
+      !bookingForm.value.transactionRef.trim()
     ) {
-      notify('Card holder name and card number are required.');
+      notify('Transaction reference is required for Google Pay / UPI.');
       return false;
     }
   }
@@ -393,32 +424,9 @@ function previousBookingStep() {
 }
 
 function validateBooking() {
-  const checkin = new Date(bookingForm.value.checkinDateTime).getTime();
-  const checkout = new Date(bookingForm.value.checkoutDateTime).getTime();
-
-  if (!Number.isFinite(checkin) || !Number.isFinite(checkout) || checkout <= checkin) {
-    notify('Checkout must be after checkin date/time.');
-    return false;
-  }
-
-  if (!bookingForm.value.meals.length) {
-    notify('Select at least one meal: breakfast, lunch, or dinner.');
-    return false;
-  }
-
-  if (!bookingForm.value.guestEmail.trim() || !bookingForm.value.guestPhone.trim()) {
-    notify('Guest phone and email are required.');
-    return false;
-  }
-
-  if (bookingForm.value.paymentMethod === 'Google Pay / UPI' && !bookingForm.value.upiId.trim()) {
-    notify('UPI ID is required for Google Pay / UPI.');
-    return false;
-  }
-
-  if (bookingForm.value.paymentMethod === 'Card / Credit') {
-    if (!bookingForm.value.cardName.trim() || !bookingForm.value.cardNumber.trim()) {
-      notify('Card holder name and card number are required.');
+  for (let step = 1; step < BOOKING_TOTAL_STEPS; step += 1) {
+    if (!validateBookingStep(step)) {
+      bookingStep.value = step;
       return false;
     }
   }
@@ -478,87 +486,21 @@ async function loadAdminAnalytics() {
   analytics.value = response;
 }
 
-async function ensureRazorpayScript() {
-  if (window.Razorpay) return;
-  await new Promise((resolve, reject) => {
-    const existing = document.querySelector('script[data-razorpay-sdk]');
-    if (existing) {
-      existing.addEventListener('load', resolve);
-      existing.addEventListener('error', () => reject(new Error('Unable to load Razorpay SDK.')));
-      return;
-    }
-    const script = document.createElement('script');
-    script.src = 'https://checkout.razorpay.com/v1/checkout.js';
-    script.async = true;
-    script.setAttribute('data-razorpay-sdk', 'true');
-    script.onload = resolve;
-    script.onerror = () => reject(new Error('Unable to load Razorpay SDK.'));
-    document.head.appendChild(script);
-  });
-}
-
-async function collectRazorpayPayment() {
-  await ensureRazorpayScript();
-  const order = await apiCreatePaymentOrder({
-    selectedSpaceId: bookingForm.value.selectedSpaceId,
-    checkinDateTime: bookingForm.value.checkinDateTime,
-    checkoutDateTime: bookingForm.value.checkoutDateTime,
-  });
-
-  return new Promise((resolve, reject) => {
-    const razorpay = new window.Razorpay({
-      key: order.keyId,
-      amount: order.amountPaise,
-      currency: order.currency,
-      name: 'IMA Guesthouse',
-      description: order.summary,
-      order_id: order.orderId,
-      prefill: {
-        name: bookingForm.value.guestName,
-        email: bookingForm.value.guestEmail,
-        contact: bookingForm.value.guestPhone,
-      },
-      handler: (response) => {
-        resolve({
-          orderId: response.razorpay_order_id,
-          paymentId: response.razorpay_payment_id,
-          signature: response.razorpay_signature,
-        });
-      },
-      modal: {
-        ondismiss: () => reject(new Error('Payment was cancelled.')),
-      },
-      theme: { color: '#0b8d73' },
-    });
-
-    razorpay.open();
-  });
-}
-
 async function submitBooking() {
   if (!validateBooking()) return;
 
   let paymentDetails =
     bookingForm.value.paymentMethod === 'Google Pay / UPI'
       ? {
-          upiId: bookingForm.value.upiId,
+          upiId: UPI_ID,
           transactionRef: bookingForm.value.transactionRef,
+          amountInr: estimatedAmountInr.value,
         }
-      : bookingForm.value.paymentMethod === 'Card / Credit'
-        ? {
-            cardHolder: bookingForm.value.cardName,
-            cardNumberMasked: maskedCard(bookingForm.value.cardNumber),
-            cardExpiry: bookingForm.value.cardExpiry,
-          }
-        : {
-            status: 'Pay at reception before checkin',
-          };
+      : {
+          status: 'Pay at reception before checkin',
+        };
 
   try {
-    if (bookingForm.value.paymentMethod === 'Razorpay Gateway') {
-      paymentDetails = await collectRazorpayPayment();
-    }
-
     await apiCreateBooking({
       guestName: bookingForm.value.guestName,
       guestEmail: bookingForm.value.guestEmail,
@@ -956,6 +898,55 @@ onUnmounted(() => {
             <transition name="wizard-step" mode="out-in">
               <section :key="bookingStep" class="wizard-panel">
                 <template v-if="bookingStep === 1">
+                  <h4>Guest Name</h4>
+                  <div class="grid two-col">
+                    <label>
+                      Guest name
+                      <input v-model.trim="bookingForm.guestName" type="text" required />
+                    </label>
+                  </div>
+                </template>
+
+                <template v-else-if="bookingStep === 2">
+                  <h4>Guest Number</h4>
+                  <div class="grid two-col">
+                    <label>
+                      Guest phone
+                      <input v-model.trim="bookingForm.guestPhone" type="tel" required placeholder="+91 9XXXXXXXXX" />
+                    </label>
+                  </div>
+                </template>
+
+                <template v-else-if="bookingStep === 3">
+                  <h4>Government ID Verification</h4>
+                  <div class="grid two-col">
+                    <label>
+                      Guest email
+                      <input v-model.trim="bookingForm.guestEmail" type="email" required />
+                    </label>
+                    <label>
+                      Branch
+                      <input v-model.trim="bookingForm.branch" type="text" required />
+                    </label>
+                    <label>
+                      Govt ID proof
+                      <select v-model="bookingForm.idProofType" required>
+                        <option value="">Select</option>
+                        <option>Aadhaar</option>
+                        <option>PAN</option>
+                        <option>Passport</option>
+                        <option>Driving License</option>
+                        <option>Other</option>
+                      </select>
+                    </label>
+                    <label>
+                      Govt ID number
+                      <input v-model.trim="bookingForm.idProofNumber" type="text" required />
+                    </label>
+                  </div>
+                </template>
+
+                <template v-else-if="bookingStep === 4">
                   <h4>Choose Your Space</h4>
                   <div class="grid two-col">
                     <label>
@@ -997,49 +988,7 @@ onUnmounted(() => {
                   </div>
                 </template>
 
-                <template v-else-if="bookingStep === 2">
-                  <h4>Guest Identity</h4>
-                  <div class="grid two-col">
-                    <label>
-                      Guest name
-                      <input v-model.trim="bookingForm.guestName" type="text" required />
-                    </label>
-
-                    <label>
-                      Guest email
-                      <input v-model.trim="bookingForm.guestEmail" type="email" required />
-                    </label>
-
-                    <label>
-                      Guest phone
-                      <input v-model.trim="bookingForm.guestPhone" type="tel" required />
-                    </label>
-
-                    <label>
-                      Branch
-                      <input v-model.trim="bookingForm.branch" type="text" required />
-                    </label>
-
-                    <label>
-                      Id proof
-                      <select v-model="bookingForm.idProofType" required>
-                        <option value="">Select</option>
-                        <option>Aadhaar</option>
-                        <option>PAN</option>
-                        <option>Passport</option>
-                        <option>Driving License</option>
-                        <option>Other</option>
-                      </select>
-                    </label>
-
-                    <label>
-                      Id proof number
-                      <input v-model.trim="bookingForm.idProofNumber" type="text" required />
-                    </label>
-                  </div>
-                </template>
-
-                <template v-else-if="bookingStep === 3">
+                <template v-else-if="bookingStep === 5">
                   <h4>Stay Preferences</h4>
                   <div class="grid two-col">
                     <label>
@@ -1102,71 +1051,31 @@ onUnmounted(() => {
                   </div>
                 </template>
 
-                <template v-else-if="bookingStep === 4">
+                <template v-else-if="bookingStep === 6">
                   <h4>Payment Selection</h4>
                   <div class="grid two-col">
                     <label>
                       Payment details
                       <select v-model="bookingForm.paymentMethod" required @change="onPaymentMethodChange">
                         <option value="">Select</option>
-                        <option>Razorpay Gateway</option>
                         <option>Google Pay / UPI</option>
-                        <option>Card / Credit</option>
                         <option>Pay on Arrival</option>
                       </select>
                     </label>
                   </div>
 
                   <transition name="slide-fade">
-                    <p v-if="bookingForm.paymentMethod === 'Razorpay Gateway'" class="pay-note">
-                      Secure Razorpay checkout supports UPI, cards, and net banking.
-                    </p>
-                  </transition>
-
-                  <transition name="slide-fade">
-                    <div v-if="bookingForm.paymentMethod === 'Google Pay / UPI'" class="grid pay-grid">
-                      <label>
-                        UPI ID
-                        <input v-model.trim="bookingForm.upiId" type="text" placeholder="example@okbank" required />
-                      </label>
+                    <div v-if="bookingForm.paymentMethod === 'Google Pay / UPI'" class="upi-payment-card">
+                      <h5>Scan with Google Pay</h5>
+                      <img class="upi-qr" :src="upiQrImageUrl" alt="IMA Guesthouse UPI QR Code" loading="lazy" />
+                      <p><strong>UPI ID:</strong> {{ UPI_ID }}</p>
+                      <p v-if="estimatedAmountInr > 0"><strong>Amount:</strong> INR {{ estimatedAmountInr }}</p>
                       <label>
                         Transaction reference
                         <input
                           v-model.trim="bookingForm.transactionRef"
                           type="text"
-                          placeholder="Optional before payment"
-                        />
-                      </label>
-                    </div>
-                  </transition>
-
-                  <transition name="slide-fade">
-                    <div v-if="bookingForm.paymentMethod === 'Card / Credit'" class="grid pay-grid">
-                      <label>
-                        Card holder name
-                        <input v-model.trim="bookingForm.cardName" type="text" required />
-                      </label>
-                      <label>
-                        Card number
-                        <input
-                          v-model.trim="bookingForm.cardNumber"
-                          type="text"
-                          minlength="12"
-                          maxlength="19"
-                          required
-                        />
-                      </label>
-                      <label>
-                        Expiry (MM/YY)
-                        <input v-model.trim="bookingForm.cardExpiry" type="text" placeholder="MM/YY" required />
-                      </label>
-                      <label>
-                        CVV
-                        <input
-                          v-model.trim="bookingForm.cardCvv"
-                          type="password"
-                          minlength="3"
-                          maxlength="4"
+                          placeholder="Enter UPI transaction reference"
                           required
                         />
                       </label>
@@ -1185,6 +1094,7 @@ onUnmounted(() => {
                   <div class="list-card booking-review">
                     <p><strong>Guest:</strong> {{ bookingForm.guestName }} · {{ bookingForm.branch }}</p>
                     <p><strong>Contact:</strong> {{ bookingForm.guestPhone }} · {{ bookingForm.guestEmail }}</p>
+                    <p><strong>Govt ID:</strong> {{ bookingForm.idProofType }} · {{ bookingForm.idProofNumber }}</p>
                     <p><strong>Space:</strong> {{ selectedSpaceDetails?.name || bookingForm.selectedSpaceId }}</p>
                     <p>
                       <strong>Stay:</strong>
@@ -1193,6 +1103,9 @@ onUnmounted(() => {
                     <p><strong>Food:</strong> {{ bookingForm.foodPreference }} · {{ bookingForm.meals.join(', ') }}</p>
                     <p><strong>Cab:</strong> {{ bookingForm.cabService }}</p>
                     <p><strong>Payment:</strong> {{ bookingForm.paymentMethod }}</p>
+                    <p v-if="bookingForm.paymentMethod === 'Google Pay / UPI'">
+                      <strong>Txn Ref:</strong> {{ bookingForm.transactionRef || 'N/A' }}
+                    </p>
                   </div>
                 </template>
               </section>

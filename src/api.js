@@ -41,13 +41,6 @@ export function apiCreateBooking(payload) {
   });
 }
 
-export function apiCreatePaymentOrder(payload) {
-  return request('/api/payments', {
-    method: 'POST',
-    body: JSON.stringify(payload),
-  });
-}
-
 export function apiSubmitFeedback(payload) {
   return request('/api/feedback', {
     method: 'POST',

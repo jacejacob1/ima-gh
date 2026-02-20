@@ -1,6 +1,5 @@
 import bcrypt from 'bcryptjs';
 import crypto from 'node:crypto';
-import Razorpay from 'razorpay';
 import { signAuthToken, signGuestToken, requireAuth } from '../lib/auth.js';
 import { serializeBooking } from '../lib/bookings.js';
 import { query } from '../lib/db.js';
@@ -58,17 +57,6 @@ async function blockConflict(spaceId, checkinIso, checkoutIso) {
     [spaceId, checkoutIso, checkinIso]
   );
   return result.rows[0] || null;
-}
-
-function verifyRazorpayPayment(paymentDetails) {
-  const secret = process.env.RAZORPAY_KEY_SECRET;
-  if (!secret) {
-    throw new Error('Razorpay secret is not configured on server.');
-  }
-
-  const body = `${paymentDetails.orderId}|${paymentDetails.paymentId}`;
-  const expectedSignature = crypto.createHmac('sha256', secret).update(body).digest('hex');
-  return expectedSignature === paymentDetails.signature;
 }
 
 async function handleHealth(req, res) {
@@ -161,24 +149,25 @@ async function handleBookings(req, res) {
   }
 
   const amount = computeBookingAmount(String(payload.selectedSpaceId), checkinIso, checkoutIso);
+  const paymentMethod = String(payload.paymentMethod || '');
+  const allowedPaymentMethods = new Set(['Google Pay / UPI', 'Pay on Arrival']);
+  if (!allowedPaymentMethods.has(paymentMethod)) {
+    return badRequest(res, 'Payment method must be Google Pay / UPI or Pay on Arrival.');
+  }
 
-  let paymentStatus = payload.paymentMethod === 'Pay on Arrival' ? 'pending' : 'paid';
+  let paymentStatus = paymentMethod === 'Pay on Arrival' ? 'pending' : 'paid';
   let paymentProvider = 'manual';
   let paymentReference = '';
 
-  if (payload.paymentMethod === 'Razorpay Gateway') {
-    const details = payload.paymentDetails || {};
-    if (!details.orderId || !details.paymentId || !details.signature) {
-      return badRequest(res, 'Razorpay payment details are required.');
-    }
-    if (!verifyRazorpayPayment(details)) {
-      return badRequest(res, 'Razorpay signature verification failed.');
+  if (paymentMethod === 'Google Pay / UPI') {
+    const paymentDetails = payload.paymentDetails || {};
+    const transactionRef = String(paymentDetails.transactionRef || '').trim();
+    if (!transactionRef) {
+      return badRequest(res, 'Transaction reference is required for Google Pay / UPI.');
     }
     paymentStatus = 'paid';
-    paymentProvider = 'razorpay';
-    paymentReference = details.paymentId;
-  } else if (payload.paymentMethod === 'Google Pay / UPI' || payload.paymentMethod === 'Card / Credit') {
-    paymentReference = String((payload.paymentDetails || {}).transactionRef || '');
+    paymentProvider = 'upi';
+    paymentReference = transactionRef;
   }
 
   const booking = {
@@ -199,7 +188,7 @@ async function handleBookings(req, res) {
     foodPreference: String(payload.foodPreference),
     meals: payload.meals,
     cabService: String(payload.cabService),
-    paymentMethod: String(payload.paymentMethod),
+    paymentMethod,
     paymentStatus,
     paymentProvider,
     paymentReference,
@@ -309,42 +298,6 @@ async function handleBlocks(req, res) {
       endDateTime: row.end_datetime,
       reason: row.reason,
     })),
-  });
-}
-
-async function handlePayments(req, res) {
-  if (req.method !== 'POST') return methodNotAllowed(res, ['POST']);
-  const { selectedSpaceId, checkinDateTime, checkoutDateTime } = req.body || {};
-  if (!selectedSpaceId || !checkinDateTime || !checkoutDateTime) {
-    return badRequest(res, 'selectedSpaceId, checkinDateTime, checkoutDateTime are required.');
-  }
-  if (!isValidDateRange(checkinDateTime, checkoutDateTime)) {
-    return badRequest(res, 'Invalid checkin/checkout date range.');
-  }
-
-  const keyId = process.env.RAZORPAY_KEY_ID;
-  const keySecret = process.env.RAZORPAY_KEY_SECRET;
-  if (!keyId || !keySecret) {
-    return badRequest(res, 'Razorpay is not configured. Add RAZORPAY_KEY_ID and RAZORPAY_KEY_SECRET.');
-  }
-
-  const pricing = computeBookingAmount(String(selectedSpaceId), toIso(checkinDateTime), toIso(checkoutDateTime));
-  const razorpay = new Razorpay({ key_id: keyId, key_secret: keySecret });
-
-  const order = await razorpay.orders.create({
-    amount: pricing.amountInr * 100,
-    currency: 'INR',
-    receipt: `ima_${Date.now()}`,
-    notes: { selectedSpaceId: String(selectedSpaceId) },
-  });
-
-  return json(res, 200, {
-    orderId: order.id,
-    amountInr: pricing.amountInr,
-    amountPaise: pricing.amountInr * 100,
-    currency: 'INR',
-    keyId,
-    summary: pricing.summary,
   });
 }
 
@@ -639,7 +592,6 @@ export default async function handler(req, res) {
   if (segments[0] === 'bookings') return handleBookings(req, res);
   if (segments[0] === 'feedback') return handleFeedback(req, res);
   if (segments[0] === 'blocks') return handleBlocks(req, res);
-  if (segments[0] === 'payments') return handlePayments(req, res);
 
   if (segments[0] === 'auth' && segments[1] === 'login') return handleAuthLogin(req, res);
 
