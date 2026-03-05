@@ -4,6 +4,7 @@ import { signAuthToken, signGuestToken, requireAuth } from '../lib/auth.js';
 import { serializeBooking } from '../lib/bookings.js';
 import { query } from '../lib/db.js';
 import { sendBookingConfirmation, sendOtpEmail } from '../lib/email.js';
+import { sendGuestWhatsAppConfirmation, sendAdminWhatsAppAlert } from '../lib/whatsapp.js';
 import {
   badRequest,
   isValidDateRange,
@@ -269,10 +270,14 @@ async function handleBookings(req, res) {
     // Booking succeeds even if email fails.
   }
 
+  // Trigger WhatsApp notifications non-blockingly
+  sendGuestWhatsAppConfirmation(booking).catch(err => console.error('WhatsApp guest err:', err));
+  sendAdminWhatsAppAlert(booking).catch(err => console.error('WhatsApp admin err:', err));
+
   return json(res, 201, {
     booking,
     amountSummary: amount.summary,
-    message: 'Booking confirmed. Confirmation email sent to secretary@imatnsb-hqgh.com.',
+    message: 'Booking confirmed. Confirmation email and WhatsApp messages sent.',
   });
 }
 
