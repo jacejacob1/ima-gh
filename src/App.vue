@@ -751,9 +751,6 @@ onUnmounted(() => {
     </transition>
 
     <div v-if="!isBootLoading" class="app-shell">
-      <div class="orb orb-one"></div>
-      <div class="orb orb-two"></div>
-
 
       <header class="topbar">
         <div class="nav-container">
@@ -793,10 +790,10 @@ onUnmounted(() => {
           <section class="hero">
             <div class="hero-bg" :style="heroBackgroundStyle"></div>
             <div class="hero-overlay"></div>
-            <div class="hero-content fade-up">
-              <h2>Cinematic Stay.</h2>
-              <p class="lead">Experience the IMA Premium Guest House. Comfort, redefined.</p>
-              <div class="cta-group">
+            <div class="hero-content">
+              <h2 class="fade-up">Cinematic Stay.</h2>
+              <p class="lead fade-up delay-1">Experience the IMA Premium Guest House. Comfort, redefined.</p>
+              <div class="cta-group fade-up delay-2">
                 <button class="btn btn-primary" @click="goToPage('booking')">Book Your Stay</button>
                 <button class="btn btn-secondary" @click="goToPage('contact')">Contact Desk</button>
               </div>
