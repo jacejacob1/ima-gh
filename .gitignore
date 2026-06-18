@@ -6,3 +6,5 @@ node_modules
 .env
 .env.*
 !.env.example
+DEPLOY_GUIDE.md
+SETUP_NEW_UI.md

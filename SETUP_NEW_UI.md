@@ -19,15 +19,18 @@ The previous Vercel project was a Vite build (`framework: vite`, output `dist`).
 ## Environment variables (Vercel → Settings → Environment Variables)
 
 ```
-DATABASE_URL = postgresql://postgres.kzfepdiflhqhrkryvnyw:43CDB2nx6x51e5aY@aws-0-ap-south-1.pooler.supabase.com:6543/postgres
-JWT_SECRET   = hxsF+nfqCzoonSxiiiDbM97PUUJjwO780twhxMYj9P+zoWRPxow+q2M4xCTmI/LS
+DATABASE_URL = postgresql://postgres.kzfepdiflhqhrkryvnyw:<DB_PASSWORD>@aws-0-ap-south-1.pooler.supabase.com:6543/postgres
+JWT_SECRET   = <your-jwt-secret>
 ADMIN_DEFAULT_PASSWORD = Admin@123
 BOOKING_ALERT_TO = secretary@imatnsb-hqgh.com
 ```
 
+> The real values are in your local `.env` (gitignored) and in `DEPLOY_GUIDE.md` (also gitignored).
+> Never commit the actual `DATABASE_URL` password or `JWT_SECRET`.
+
 Add the `SMTP_*` and `WHATSAPP_*` values later to turn on emails and the 6-admin WhatsApp alerts (see `.env.example`). The site works without them — bookings still save.
 
-> Verify the `DATABASE_URL` host against Supabase → **Connect → Transaction pooler** (it should read `aws-0-ap-south-1.pooler.supabase.com`). The password is `43CDB2nx6x51e5aY`.
+> Verify the `DATABASE_URL` host against Supabase → **Connect → Transaction pooler** (it should read `aws-0-ap-south-1.pooler.supabase.com`).
 
 ## Room inventory & pricing
 
