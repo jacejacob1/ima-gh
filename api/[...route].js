@@ -197,6 +197,7 @@ async function handleBookings(req, res) {
     hallOrRoom: String(payload.hallOrRoom),
     selectedSpaceId: String(payload.selectedSpaceId),
     selectedSpaceLabel: selectedSpaceLabel(String(payload.selectedSpaceId)),
+    referralDoctor: String(payload.referralDoctor || '').trim(),
     checkinDateTime: checkinIso,
     checkoutDateTime: checkoutIso,
     totalAmount: amount.amountInr,
@@ -218,12 +219,14 @@ async function handleBookings(req, res) {
         id, guest_name, guest_email, guest_phone, branch, id_proof_type, id_proof_number,
         hall_or_room, selected_space_id, selected_space_label, checkin_datetime, checkout_datetime,
         total_amount, food_preference, meals_json, cab_service, payment_method, payment_status,
-        payment_provider, payment_reference, payment_details_json, invoice_number, feedback_text, created_at
+        payment_provider, payment_reference, payment_details_json, invoice_number, feedback_text,
+        referral_doctor, created_at
       )
       VALUES (
         $1, $2, $3, $4, $5, $6, $7, $8,
         $9, $10, $11::timestamptz, $12::timestamptz, $13,
-        $14, $15::jsonb, $16, $17, $18, $19, $20, $21::jsonb, $22, $23, $24::timestamptz
+        $14, $15::jsonb, $16, $17, $18, $19, $20, $21::jsonb, $22, $23,
+        $24, $25::timestamptz
       )
     `,
     [
@@ -250,6 +253,7 @@ async function handleBookings(req, res) {
       JSON.stringify(booking.paymentDetails),
       booking.invoiceNumber,
       booking.feedback,
+      booking.referralDoctor,
       booking.createdAt,
     ]
   );

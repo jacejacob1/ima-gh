@@ -166,11 +166,11 @@ const estimatedAmountInr = computed(() => {
   if (selected.type === 'Room') {
     const dayMs = 24 * 60 * 60 * 1000;
     const days = Math.max(1, Math.ceil((checkout - checkin) / dayMs));
-    return days * 2000;
+    return days * (selected.ratePerDayInr || 2000);
   }
 
   const hours = (checkout - checkin) / (1000 * 60 * 60);
-  return hours <= 6 ? 40000 : 80000;
+  return hours <= 6 ? (selected.halfDayInr || 40000) : (selected.fullDayInr || 80000);
 });
 
 const upiPaymentUri = computed(() => {
@@ -195,6 +195,7 @@ function getEmptyBookingForm() {
     guestEmail: '',
     guestPhone: '',
     branch: '',
+    referralDoctor: '',
     idProofType: '',
     idProofNumber: '',
     hallOrRoom: '',
@@ -506,6 +507,7 @@ async function submitBooking() {
       guestEmail: bookingForm.value.guestEmail,
       guestPhone: bookingForm.value.guestPhone,
       branch: bookingForm.value.branch,
+      referralDoctor: bookingForm.value.referralDoctor,
       idProofType: bookingForm.value.idProofType,
       idProofNumber: bookingForm.value.idProofNumber,
       hallOrRoom: bookingForm.value.hallOrRoom,
@@ -639,6 +641,107 @@ async function cancelBooking(bookingId) {
 
 function displayDate(input) {
   return new Date(input).toLocaleString();
+}
+
+/* ---------- Admin booking calendar + room availability ---------- */
+const WEEKDAY_LABELS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+
+function startOfMonth(date) {
+  return new Date(date.getFullYear(), date.getMonth(), 1);
+}
+
+const calendarCursor = ref(startOfMonth(new Date()));
+const selectedCalendarDate = ref(null);
+
+const calendarLabel = computed(() =>
+  calendarCursor.value.toLocaleString(undefined, { month: 'long', year: 'numeric' })
+);
+
+const roomInventory = computed(() => inventory.value.filter((item) => item.type === 'Room'));
+
+function bookingCoversDate(booking, date) {
+  const checkin = new Date(booking.checkinDateTime).getTime();
+  const checkout = new Date(booking.checkoutDateTime).getTime();
+  const dayStart = new Date(date.getFullYear(), date.getMonth(), date.getDate()).getTime();
+  const dayEnd = dayStart + 24 * 60 * 60 * 1000;
+  return checkin < dayEnd && dayStart < checkout;
+}
+
+function isSameDay(a, b) {
+  return (
+    a &&
+    b &&
+    a.getFullYear() === b.getFullYear() &&
+    a.getMonth() === b.getMonth() &&
+    a.getDate() === b.getDate()
+  );
+}
+
+const calendarDays = computed(() => {
+  const first = calendarCursor.value;
+  const leadingBlanks = first.getDay();
+  const daysInMonth = new Date(first.getFullYear(), first.getMonth() + 1, 0).getDate();
+  const today = new Date();
+  const cells = [];
+
+  for (let i = 0; i < leadingBlanks; i += 1) {
+    cells.push({ blank: true, key: `blank-${i}` });
+  }
+
+  for (let day = 1; day <= daysInMonth; day += 1) {
+    const date = new Date(first.getFullYear(), first.getMonth(), day);
+    const dayBookings = bookings.value.filter((booking) => bookingCoversDate(booking, date));
+    cells.push({
+      blank: false,
+      key: `day-${day}`,
+      date,
+      day,
+      count: dayBookings.length,
+      isToday: isSameDay(date, today),
+      isSelected: isSameDay(date, selectedCalendarDate.value),
+    });
+  }
+
+  return cells;
+});
+
+const selectedDateBookings = computed(() => {
+  if (!selectedCalendarDate.value) return [];
+  return bookings.value.filter((booking) => bookingCoversDate(booking, selectedCalendarDate.value));
+});
+
+const roomAvailability = computed(() => {
+  if (!selectedCalendarDate.value) return [];
+  return roomInventory.value.map((space) => {
+    const occupied = bookings.value.find(
+      (booking) =>
+        booking.selectedSpaceId === space.id &&
+        bookingCoversDate(booking, selectedCalendarDate.value)
+    );
+    return {
+      space,
+      booked: Boolean(occupied),
+      guestName: occupied ? occupied.guestName : '',
+    };
+  });
+});
+
+const availableRoomCount = computed(
+  () => roomAvailability.value.filter((entry) => !entry.booked).length
+);
+
+function changeCalendarMonth(offset) {
+  const cursor = calendarCursor.value;
+  calendarCursor.value = new Date(cursor.getFullYear(), cursor.getMonth() + offset, 1);
+}
+
+function selectCalendarDay(cell) {
+  if (cell.blank) return;
+  selectedCalendarDate.value = cell.date;
+}
+
+function displayDateOnly(input) {
+  return new Date(input).toLocaleDateString();
 }
 
 async function requestOtp() {
@@ -926,6 +1029,14 @@ onUnmounted(() => {
                       <input v-model.trim="bookingForm.branch" type="text" required />
                     </label>
                     <label>
+                      Referral doctor (optional)
+                      <input
+                        v-model.trim="bookingForm.referralDoctor"
+                        type="text"
+                        placeholder="Doctor who referred you (if any)"
+                      />
+                    </label>
+                    <label>
                       Govt ID proof
                       <select v-model="bookingForm.idProofType" required>
                         <option value="">Select</option>
@@ -1050,6 +1161,10 @@ onUnmounted(() => {
 
                 <template v-else-if="bookingStep === 6">
                   <h4>Payment Selection</h4>
+                  <p class="pay-note refund-note">
+                    A gentle note: once your booking is confirmed and payment is made, the amount is
+                    non-refundable. Do take a moment to review your dates and details before confirming.
+                  </p>
                   <div class="grid two-col">
                     <label>
                       Payment details
@@ -1092,6 +1207,7 @@ onUnmounted(() => {
                     <p><strong>Guest:</strong> {{ bookingForm.guestName }} · {{ bookingForm.branch }}</p>
                     <p><strong>Contact:</strong> {{ bookingForm.guestPhone }} · {{ bookingForm.guestEmail }}</p>
                     <p><strong>Govt ID:</strong> {{ bookingForm.idProofType }} · {{ bookingForm.idProofNumber }}</p>
+                    <p><strong>Referral Dr:</strong> {{ bookingForm.referralDoctor || 'N/A' }}</p>
                     <p><strong>Space:</strong> {{ selectedSpaceDetails?.name || bookingForm.selectedSpaceId }}</p>
                     <p>
                       <strong>Stay:</strong>
@@ -1104,6 +1220,9 @@ onUnmounted(() => {
                       <strong>Txn Ref:</strong> {{ bookingForm.transactionRef || 'N/A' }}
                     </p>
                   </div>
+                  <p class="pay-note refund-note">
+                    Please note: confirmed bookings and payments are non-refundable.
+                  </p>
                 </template>
               </section>
             </transition>
@@ -1371,6 +1490,93 @@ onUnmounted(() => {
                   <p>Dinner: {{ analytics.mealDemand.dinner }}</p>
                 </article>
               </div>
+            </section>
+
+            <section class="admin-section calendar-section">
+              <h4>Booking Calendar</h4>
+              <p class="muted small">
+                Click any date to see that day's bookings and which of the 7 rooms are free.
+              </p>
+
+              <div class="calendar-toolbar">
+                <button type="button" class="secondary-btn" @click="changeCalendarMonth(-1)">‹ Prev</button>
+                <strong class="calendar-month-label">{{ calendarLabel }}</strong>
+                <button type="button" class="secondary-btn" @click="changeCalendarMonth(1)">Next ›</button>
+              </div>
+
+              <div class="calendar-weekdays">
+                <span v-for="label in WEEKDAY_LABELS" :key="label">{{ label }}</span>
+              </div>
+
+              <div class="calendar-grid">
+                <template v-for="cell in calendarDays" :key="cell.key">
+                  <span v-if="cell.blank" class="calendar-cell calendar-cell-blank"></span>
+                  <button
+                    v-else
+                    type="button"
+                    class="calendar-cell"
+                    :class="{
+                      'calendar-cell-today': cell.isToday,
+                      'calendar-cell-selected': cell.isSelected,
+                      'calendar-cell-busy': cell.count > 0,
+                    }"
+                    @click="selectCalendarDay(cell)"
+                  >
+                    <span class="calendar-day-num">{{ cell.day }}</span>
+                    <span v-if="cell.count > 0" class="calendar-day-badge">{{ cell.count }}</span>
+                  </button>
+                </template>
+              </div>
+
+              <div v-if="selectedCalendarDate" class="calendar-detail">
+                <div class="calendar-detail-head">
+                  <h5>{{ displayDateOnly(selectedCalendarDate) }}</h5>
+                  <span class="muted small">{{ availableRoomCount }} of {{ roomInventory.length }} rooms free</span>
+                </div>
+
+                <div class="grid two-col">
+                  <div>
+                    <strong>Bookings on this date</strong>
+                    <div class="simple-list">
+                      <article
+                        v-for="booking in selectedDateBookings"
+                        :key="`cal-${booking.id}`"
+                        class="list-card"
+                      >
+                        <strong>{{ booking.selectedSpaceLabel }}</strong>
+                        <p>{{ booking.guestName }} · {{ booking.guestPhone || 'No phone' }}</p>
+                        <p class="muted small">
+                          {{ displayDate(booking.checkinDateTime) }} →
+                          {{ displayDate(booking.checkoutDateTime) }}
+                        </p>
+                        <p class="muted small">
+                          Payment: {{ booking.paymentStatus }} · INR {{ booking.totalAmount || 0 }}
+                        </p>
+                      </article>
+                      <p v-if="selectedDateBookings.length === 0" class="muted">
+                        No bookings on this date.
+                      </p>
+                    </div>
+                  </div>
+
+                  <div>
+                    <strong>Room availability</strong>
+                    <div class="room-availability-grid">
+                      <span
+                        v-for="entry in roomAvailability"
+                        :key="`avail-${entry.space.id}`"
+                        class="availability-chip"
+                        :class="entry.booked ? 'availability-booked' : 'availability-free'"
+                        :title="entry.booked ? `Booked by ${entry.guestName}` : 'Available'"
+                      >
+                        {{ entry.space.name }}
+                        <small>{{ entry.booked ? 'Booked' : 'Free' }}</small>
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <p v-else class="muted small calendar-hint">Select a date above to view details.</p>
             </section>
 
             <div class="admin-grid">

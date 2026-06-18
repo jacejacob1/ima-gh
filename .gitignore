@@ -2,3 +2,9 @@ node_modules
 dist
 .DS_Store
 .vscode
+
+# Secrets — never commit
+.env
+.env.*
+!.env.example
+.vercel

@@ -22,6 +22,7 @@ const emit = defineEmits(['cancel-booking']);
     <strong>{{ booking.guestName }} · {{ booking.branch }}</strong>
     <p class="muted">{{ booking.guestPhone || 'No phone' }} · {{ booking.guestEmail || 'No email' }}</p>
     <p class="muted">{{ booking.hallOrRoom }}: {{ booking.selectedSpaceLabel }}</p>
+    <p class="muted">Referral Dr: {{ booking.referralDoctor || 'N/A' }}</p>
     <p>
       Checkin: {{ displayDate(booking.checkinDateTime) }}<br />
       Checkout: {{ displayDate(booking.checkoutDateTime) }}
