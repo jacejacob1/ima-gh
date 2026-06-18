@@ -1,89 +1,22 @@
-# IMA Guesthouse Booking (Vue + Vite + Vercel API + Postgres)
+# CODING AGENTS: READ THIS FIRST
 
-## Features
+This is a **handoff bundle** from Claude Design (claude.ai/design).
 
-- Real inventory of 7 rooms (5 Deluxe @ ₹1,500/day, 2 Executive @ ₹2,000/day) + conference hall
-- Public room/hall listing and booking details page
-- Booking + guest details persisted to managed Postgres (free Supabase tier or Neon)
-- 7-step booking wizard incl. **Referral Doctor** capture and a non-refundable payment notice
-- Google Pay / UPI scanner payment + Pay on Arrival option
-- OTP-based guest portal login (email OTP), booking history, invoice PDF download
-- Booking confirmation and OTP emails (secretary + guest)
-- **WhatsApp booking alerts to all 6 admins** via WhatsApp Cloud API
-- Pre-checkout feedback saved against bookings
-- Role-based backend auth (`admin`, `manager`, `guest`)
-- Admin dashboard: 6 admin logins, booking management, analytics (occupancy, revenue, meals),
-  and a **booking calendar** with per-date room availability across the 7 rooms
+A user mocked up designs in HTML/CSS/JS using an AI design tool, then exported this bundle so a coding agent can implement the designs for real.
 
-## Default users
+## What you should do — IMPORTANT
 
-- `admin / Admin@123`, `manager / Manager@123` (legacy)
-- Six guesthouse admins: `admin1` … `admin6` (password = `ADMIN_DEFAULT_PASSWORD`, default `Admin@123`)
+**Read `ima-guesthouse/project/index.html` in full.** The user had this file open when they triggered the handoff, so it's almost certainly the primary design they want built. Read it top to bottom — don't skim. Then **follow its imports**: open every file it pulls in (shared components, CSS, scripts) so you understand how the pieces fit together before you start implementing.
 
-Users are auto-seeded in the database the first time an API route is called. Change the default
-password in production by setting `ADMIN_DEFAULT_PASSWORD` before first run.
+**If anything is ambiguous, ask the user to confirm before you start implementing.** It's much cheaper to clarify scope up front than to build the wrong thing.
 
-## Zero-cost backend (Supabase)
+## About the design files
 
-The API uses standard Postgres (`pg`), so a **free Supabase project** works with no code changes:
+The design medium is **HTML/CSS/JS** — these are prototypes, not production code. Your job is to **recreate them pixel-perfectly** in whatever technology makes sense for the target codebase (React, Vue, native, whatever fits). Match the visual output; don't copy the prototype's internal structure unless it happens to fit.
 
-1. Create a project at supabase.com (free tier).
-2. Copy the URI connection string from Project Settings → Database → Connection string.
-3. Set it as `DATABASE_URL`. Tables, indexes and seed users are created automatically on first call.
+**Don't render these files in a browser or take screenshots unless the user asks you to.** Everything you need — dimensions, colors, layout rules — is spelled out in the source. Read the HTML and CSS directly; a screenshot won't tell you anything they don't.
 
-## Environment variables
+## Bundle contents
 
-Copy `.env.example` to `.env` (for local `vercel dev`) and set:
-
-- `DATABASE_URL`: Postgres connection string (free Supabase or Neon)
-- `JWT_SECRET`: JWT signing secret
-- `ADMIN_DEFAULT_PASSWORD`: password seeded for `admin1`…`admin6` (default `Admin@123`)
-- `VITE_API_BASE_URL`: keep empty for same-origin in production
-- `VITE_IMA_UPI_ID`: UPI ID shown in booking payment step
-- `VITE_IMA_UPI_NAME`: payee name shown in UPI QR flow
-- `SMTP_HOST`, `SMTP_PORT`, `SMTP_SECURE`, `SMTP_USER`, `SMTP_PASS`: SMTP provider config
-- `MAIL_FROM`: sender identity
-- `BOOKING_ALERT_TO`: booking alert recipient (`secretary@imatnsb-hqgh.com`)
-- `WHATSAPP_PHONE_NUMBER_ID`, `WHATSAPP_ACCESS_TOKEN`: WhatsApp Cloud API credentials
-- `WHATSAPP_ADMIN_NUMBERS`: comma-separated E.164 digits for all 6 admins (e.g. `9198...,9199...`)
-- `WHATSAPP_ADMIN_NUMBER`: legacy single-admin fallback (used only if the list above is empty)
-- `OTP_DEBUG`: set `true` only in test to return OTP in API response
-
-## WhatsApp admin alerts
-
-On every new booking the API sends a text alert to each number in `WHATSAPP_ADMIN_NUMBERS`
-through the WhatsApp Cloud API. Sends run in parallel and one failure never blocks the others or
-the booking itself. To enable: create a Meta WhatsApp Cloud API app, set `WHATSAPP_PHONE_NUMBER_ID`
-and `WHATSAPP_ACCESS_TOKEN`, and list the 6 admin numbers in `WHATSAPP_ADMIN_NUMBERS`.
-
-## Local development
-
-```bash
-npm install
-npx vercel dev
-```
-
-This runs frontend and API routes together locally.
-
-## Scripts
-
-- `npm run dev`: frontend-only Vite dev server
-- `npm run dev:vercel`: full-stack local mode via Vercel
-- `npm run build`: frontend production build
-- `npm run lint`: ESLint
-- `npm run format`: Prettier
-
-## Deploy on Vercel
-
-1. Import this GitHub repo in Vercel.
-2. Project settings -> Environment Variables:
-   - `DATABASE_URL`
-   - `JWT_SECRET`
-   - `VITE_IMA_UPI_ID`
-   - `VITE_IMA_UPI_NAME`
-   - SMTP variables (`SMTP_*`, `MAIL_FROM`)
-   - `BOOKING_ALERT_TO=secretary@imatnsb-hqgh.com`
-   - `VITE_API_BASE_URL` (empty)
-3. Redeploy.
-
-The frontend and backend API run in one Vercel project.
+- `ima-guesthouse/README.md` — this file
+- `ima-guesthouse/project/` — the `IMA Guesthouse` project files (HTML prototypes, assets, components)

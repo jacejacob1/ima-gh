@@ -130,27 +130,21 @@ async function handleBookings(req, res) {
   if (req.method !== 'POST') return methodNotAllowed(res, ['GET', 'POST']);
 
   const payload = req.body || {};
+  // The reservation-request UI collects only the essentials; the rest are
+  // optional and filled with sensible defaults (reception confirms on contact).
   const requiredFields = [
     'guestName',
     'guestPhone',
-    'guestEmail',
-    'branch',
     'idProofType',
     'idProofNumber',
     'hallOrRoom',
     'selectedSpaceId',
     'checkinDateTime',
     'checkoutDateTime',
-    'foodPreference',
-    'cabService',
-    'paymentMethod',
   ];
 
   const missing = requiredFields.find((field) => !payload[field]);
   if (missing) return badRequest(res, `${missing} is required.`);
-  if (!Array.isArray(payload.meals) || payload.meals.length === 0) {
-    return badRequest(res, 'At least one meal must be selected.');
-  }
   if (!isValidDateRange(payload.checkinDateTime, payload.checkoutDateTime)) {
     return badRequest(res, 'Invalid checkin/checkout date range.');
   }
@@ -164,7 +158,8 @@ async function handleBookings(req, res) {
   }
 
   const amount = computeBookingAmount(String(payload.selectedSpaceId), checkinIso, checkoutIso);
-  const paymentMethod = String(payload.paymentMethod || '');
+  // Default to Pay on Arrival (no online payment step in the reservation UI).
+  const paymentMethod = String(payload.paymentMethod || 'Pay on Arrival');
   const allowedPaymentMethods = new Set(['Google Pay / UPI', 'Pay on Arrival']);
   if (!allowedPaymentMethods.has(paymentMethod)) {
     return badRequest(res, 'Payment method must be Google Pay / UPI or Pay on Arrival.');
@@ -189,9 +184,9 @@ async function handleBookings(req, res) {
     id: `BK-${Date.now()}`,
     invoiceNumber: `INV-${Date.now()}`,
     guestName: String(payload.guestName).trim(),
-    guestEmail: String(payload.guestEmail).trim(),
+    guestEmail: String(payload.guestEmail || '').trim(),
     guestPhone: String(payload.guestPhone).trim(),
-    branch: String(payload.branch).trim(),
+    branch: String(payload.branch || '').trim(),
     idProofType: String(payload.idProofType),
     idProofNumber: String(payload.idProofNumber).trim(),
     hallOrRoom: String(payload.hallOrRoom),
@@ -201,15 +196,16 @@ async function handleBookings(req, res) {
     checkinDateTime: checkinIso,
     checkoutDateTime: checkoutIso,
     totalAmount: amount.amountInr,
-    foodPreference: String(payload.foodPreference),
-    meals: payload.meals,
-    cabService: String(payload.cabService),
+    foodPreference: String(payload.foodPreference || 'Not specified'),
+    meals: Array.isArray(payload.meals) ? payload.meals : [],
+    cabService: String(payload.cabService || 'No'),
     paymentMethod,
     paymentStatus,
     paymentProvider,
     paymentReference,
     paymentDetails: payload.paymentDetails || {},
     feedback: '',
+    specialRequests: String(payload.notes || payload.specialRequests || '').trim(),
     createdAt: new Date().toISOString(),
   };
 
@@ -220,13 +216,13 @@ async function handleBookings(req, res) {
         hall_or_room, selected_space_id, selected_space_label, checkin_datetime, checkout_datetime,
         total_amount, food_preference, meals_json, cab_service, payment_method, payment_status,
         payment_provider, payment_reference, payment_details_json, invoice_number, feedback_text,
-        referral_doctor, created_at
+        referral_doctor, special_requests, created_at
       )
       VALUES (
         $1, $2, $3, $4, $5, $6, $7, $8,
         $9, $10, $11::timestamptz, $12::timestamptz, $13,
         $14, $15::jsonb, $16, $17, $18, $19, $20, $21::jsonb, $22, $23,
-        $24, $25::timestamptz
+        $24, $25, $26::timestamptz
       )
     `,
     [
@@ -254,6 +250,7 @@ async function handleBookings(req, res) {
       booking.invoiceNumber,
       booking.feedback,
       booking.referralDoctor,
+      booking.specialRequests,
       booking.createdAt,
     ]
   );

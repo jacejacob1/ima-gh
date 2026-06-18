@@ -1,0 +1,31 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm --version)",
+      "Bash(npm create *)",
+      "Bash(npm install *)",
+      "Bash(npm run *)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" http://localhost:5173)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\" http://localhost:5173/upi-qr.jpg)",
+      "Bash(sips --version)",
+      "Bash(open http://localhost:5173)",
+      "Bash(gh auth *)",
+      "Bash(git --version)",
+      "Bash(npm list *)",
+      "Bash(npx vercel *)",
+      "mcp__07d92c14-220f-4c6a-8cd3-a94417b83d30__deploy_to_vercel",
+      "Bash(sudo npm *)",
+      "Bash(vercel whoami *)",
+      "Bash(vercel deploy *)",
+      "Bash(vercel alias *)",
+      "Bash(git add *)",
+      "Bash(git commit -m ' *)",
+      "Bash(git push *)",
+      "Bash(git -c credential.helper='!f\\(\\) { echo \"username=x-access-token\"; echo \"password=$\\(gh auth token\\)\"; }; f' push origin main)",
+      "Skill(update-config)",
+      "Skill(update-config:*)",
+      "Bash(exit 0)",
+      "Bash(git commit *)"
+    ]
+  }
+}
