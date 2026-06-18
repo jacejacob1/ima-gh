@@ -4,9 +4,6 @@
   "private": true,
   "type": "module",
   "description": "IMA TNSB Guesthouse — static React front-end with Vercel serverless API and Supabase Postgres.",
-  "scripts": {
-    "dev": "vercel dev"
-  },
   "dependencies": {
     "bcryptjs": "^2.4.3",
     "jsonwebtoken": "^9.0.2",
