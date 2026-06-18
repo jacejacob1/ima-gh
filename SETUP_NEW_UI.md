@@ -19,7 +19,7 @@ The previous Vercel project was a Vite build (`framework: vite`, output `dist`).
 ## Environment variables (Vercel → Settings → Environment Variables)
 
 ```
-DATABASE_URL = postgresql://postgres.kzfepdiflhqhrkryvnyw:<DB_PASSWORD>@aws-0-ap-south-1.pooler.supabase.com:6543/postgres
+DATABASE_URL = postgresql://postgres.kzfepdiflhqhrkryvnyw:<DB_PASSWORD>@aws-1-ap-south-1.pooler.supabase.com:6543/postgres
 JWT_SECRET   = <your-jwt-secret>
 ADMIN_DEFAULT_PASSWORD = Admin@123
 BOOKING_ALERT_TO = secretary@imatnsb-hqgh.com
@@ -30,7 +30,7 @@ BOOKING_ALERT_TO = secretary@imatnsb-hqgh.com
 
 Add the `SMTP_*` and `WHATSAPP_*` values later to turn on emails and the 6-admin WhatsApp alerts (see `.env.example`). The site works without them — bookings still save.
 
-> Verify the `DATABASE_URL` host against Supabase → **Connect → Transaction pooler** (it should read `aws-0-ap-south-1.pooler.supabase.com`).
+> Verify the `DATABASE_URL` host against Supabase → **Connect → Transaction pooler** (it should read `aws-1-ap-south-1.pooler.supabase.com`).
 
 ## Room inventory & pricing
 
