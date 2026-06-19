@@ -12,7 +12,13 @@ import {
   methodNotAllowed,
   toIso,
 } from '../lib/http.js';
-import { inventory, selectedSpaceLabel } from '../lib/inventory.js';
+import {
+  inventory,
+  bookingTypes,
+  resolveSpace,
+  selectedSpaceLabel,
+  roomsForCategory,
+} from '../lib/inventory.js';
 import { buildInvoiceBuffer } from '../lib/invoice.js';
 import { computeBookingAmount } from '../lib/pricing.js';
 
@@ -55,6 +61,38 @@ async function hasBookingConflict(spaceId, checkinIso, checkoutIso) {
       LIMIT 1
     `,
     [spaceId, checkoutIso, checkinIso]
+  );
+  return Boolean(result.rows[0]);
+}
+
+// Count how many bookings of a given booking-type (e.g. DELUXE) overlap the dates.
+async function countOverlappingByType(typeId, checkinIso, checkoutIso) {
+  const result = await query(
+    `
+      SELECT COUNT(*)::int AS n
+      FROM bookings
+      WHERE selected_space_id = $1
+        AND checkin_datetime < $2::timestamptz
+        AND $3::timestamptz < checkout_datetime
+    `,
+    [typeId, checkoutIso, checkinIso]
+  );
+  return result.rows[0]?.n || 0;
+}
+
+// Is a specific physical room already allotted to an overlapping booking? (optionally exclude one booking)
+async function isPhysicalRoomTaken(roomId, checkinIso, checkoutIso, excludeBookingId = '') {
+  const result = await query(
+    `
+      SELECT id
+      FROM bookings
+      WHERE allotted_room_id = $1
+        AND id <> $4
+        AND checkin_datetime < $2::timestamptz
+        AND $3::timestamptz < checkout_datetime
+      LIMIT 1
+    `,
+    [roomId, checkoutIso, checkinIso, excludeBookingId || '__none__']
   );
   return Boolean(result.rows[0]);
 }
@@ -149,15 +187,29 @@ async function handleBookings(req, res) {
     return badRequest(res, 'Invalid checkin/checkout date range.');
   }
 
+  const spaceId = String(payload.selectedSpaceId);
+  const space = resolveSpace(spaceId);
+  if (!space) return badRequest(res, 'Unknown room type selected.');
+
   const checkinIso = toIso(payload.checkinDateTime);
   const checkoutIso = toIso(payload.checkoutDateTime);
-  const blocked = await blockConflict(payload.selectedSpaceId, checkinIso, checkoutIso);
+
+  const blocked = await blockConflict(spaceId, checkinIso, checkoutIso);
   if (blocked) return json(res, 409, { message: `Selected slot is blocked for ${blocked.event_name}.` });
-  if (await hasBookingConflict(payload.selectedSpaceId, checkinIso, checkoutIso)) {
+
+  // Availability: a room *type* is full when all physical rooms of that type are taken
+  // for the dates; the hall (capacity 1) uses a direct slot conflict.
+  const bookingType = bookingTypes.find((t) => t.id === spaceId);
+  if (bookingType && bookingType.id !== 'H01') {
+    const taken = await countOverlappingByType(spaceId, checkinIso, checkoutIso);
+    if (taken >= bookingType.capacity) {
+      return json(res, 409, { message: `All ${bookingType.name.toLowerCase()}s are booked for these dates.` });
+    }
+  } else if (await hasBookingConflict(spaceId, checkinIso, checkoutIso)) {
     return json(res, 409, { message: 'Selected slot already has a booking.' });
   }
 
-  const amount = computeBookingAmount(String(payload.selectedSpaceId), checkinIso, checkoutIso);
+  const amount = computeBookingAmount(spaceId, checkinIso, checkoutIso);
   // Default to Pay on Arrival (no online payment step in the reservation UI).
   const paymentMethod = String(payload.paymentMethod || 'Pay on Arrival');
   const allowedPaymentMethods = new Set(['Google Pay / UPI', 'Pay on Arrival']);
@@ -190,8 +242,10 @@ async function handleBookings(req, res) {
     idProofType: String(payload.idProofType),
     idProofNumber: String(payload.idProofNumber).trim(),
     hallOrRoom: String(payload.hallOrRoom),
-    selectedSpaceId: String(payload.selectedSpaceId),
-    selectedSpaceLabel: selectedSpaceLabel(String(payload.selectedSpaceId)),
+    selectedSpaceId: spaceId,
+    selectedSpaceLabel: selectedSpaceLabel(spaceId),
+    allottedRoomId: '',
+    allottedRoomLabel: '',
     referralDoctor: String(payload.referralDoctor || '').trim(),
     checkinDateTime: checkinIso,
     checkoutDateTime: checkoutIso,
@@ -216,13 +270,13 @@ async function handleBookings(req, res) {
         hall_or_room, selected_space_id, selected_space_label, checkin_datetime, checkout_datetime,
         total_amount, food_preference, meals_json, cab_service, payment_method, payment_status,
         payment_provider, payment_reference, payment_details_json, invoice_number, feedback_text,
-        referral_doctor, special_requests, created_at
+        referral_doctor, special_requests, allotted_room_id, allotted_room_label, created_at
       )
       VALUES (
         $1, $2, $3, $4, $5, $6, $7, $8,
         $9, $10, $11::timestamptz, $12::timestamptz, $13,
         $14, $15::jsonb, $16, $17, $18, $19, $20, $21::jsonb, $22, $23,
-        $24, $25, $26::timestamptz
+        $24, $25, $26, $27, $28::timestamptz
       )
     `,
     [
@@ -251,6 +305,8 @@ async function handleBookings(req, res) {
       booking.feedback,
       booking.referralDoctor,
       booking.specialRequests,
+      booking.allottedRoomId,
+      booking.allottedRoomLabel,
       booking.createdAt,
     ]
   );
@@ -342,6 +398,49 @@ async function handleAdminBookings(req, res) {
   }
 
   return methodNotAllowed(res, ['GET', 'DELETE']);
+}
+
+// Admin allots a specific physical room (e.g. D103) to a booking, based on availability.
+// Pass roomId = '' to clear the allotment.
+async function handleAdminAllot(req, res) {
+  const user = requireAuth(req, res, ['admin', 'manager']);
+  if (!user) return;
+  if (req.method !== 'POST') return methodNotAllowed(res, ['POST']);
+
+  const payload = req.body || {};
+  const bookingId = String(payload.bookingId || '').trim();
+  const roomId = String(payload.roomId || '').trim();
+  if (!bookingId) return badRequest(res, 'bookingId is required.');
+
+  const result = await query('SELECT * FROM bookings WHERE id = $1 LIMIT 1', [bookingId]);
+  const row = result.rows[0];
+  if (!row) return json(res, 404, { message: 'Booking not found.' });
+
+  // Clear allotment
+  if (!roomId) {
+    await query('UPDATE bookings SET allotted_room_id = $1, allotted_room_label = $2 WHERE id = $3', ['', '', bookingId]);
+    return json(res, 200, { message: 'Allotment cleared.' });
+  }
+
+  const room = inventory.find((i) => i.id === roomId && i.type === 'Room');
+  if (!room) return badRequest(res, 'Unknown room.');
+
+  // Room must match the booking's type/category.
+  const bookingType = bookingTypes.find((t) => t.id === row.selected_space_id);
+  if (bookingType && bookingType.category !== room.category) {
+    return badRequest(res, `Booking is for a ${bookingType.category} room; ${room.name} is ${room.category}.`);
+  }
+
+  // Room must be free for the booking's dates (excluding this booking).
+  const taken = await isPhysicalRoomTaken(roomId, row.checkin_datetime, row.checkout_datetime, bookingId);
+  if (taken) return json(res, 409, { message: `${room.name} is already allotted for these dates.` });
+
+  await query('UPDATE bookings SET allotted_room_id = $1, allotted_room_label = $2 WHERE id = $3', [
+    room.id,
+    room.name,
+    bookingId,
+  ]);
+  return json(res, 200, { message: `Allotted ${room.name}.`, roomId: room.id, roomLabel: room.name });
 }
 
 async function handleAdminBlocks(req, res) {
@@ -616,6 +715,7 @@ export default async function handler(req, res) {
   if (segments[0] === 'auth' && segments[1] === 'login') return handleAuthLogin(req, res);
 
   if (segments[0] === 'admin' && segments[1] === 'bookings') return handleAdminBookings(req, res);
+  if (segments[0] === 'admin' && segments[1] === 'allot') return handleAdminAllot(req, res);
   if (segments[0] === 'admin' && segments[1] === 'blocks') return handleAdminBlocks(req, res);
   if (segments[0] === 'admin' && segments[1] === 'analytics') return handleAdminAnalytics(req, res);
 

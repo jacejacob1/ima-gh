@@ -38,6 +38,7 @@ Tamil Nadu, India</div></div><div style="background: rgb(255, 255, 255); border-
 <script type="text/babel" data-plugins="transform-react-jsx-source" data-filename="inline-0">
 
 
+
 const { useState, useEffect, Fragment } = React;
 
 /* ─── NAV ─────────────────────────────────────────────────────── */
@@ -237,13 +238,8 @@ const Rooms = ({ setPage }) => {
   const [vis, setVis] = useState(false);
   useEffect(() => { setTimeout(() => setVis(true), 80); }, []);
   const rooms = [
-    { id:'D101', code:'D101', name:'Deluxe Room', type:'Double Occupancy', rate:1500, img:'/images/r101-1.jpg', features:['AC','24×7 Hot Water','Reception Help','Clean Linen','Work Desk'] },
-    { id:'D102', code:'D102', name:'Deluxe Room', type:'Double Occupancy', rate:1500, img:'/images/r101-2.jpg', features:['AC','24×7 Hot Water','Reception Help','Clean Linen','Work Desk'] },
-    { id:'D103', code:'D103', name:'Deluxe Room', type:'Double Occupancy', rate:1500, img:'/images/r101-3.jpg', features:['AC','24×7 Hot Water','Reception Help','Clean Linen','Work Desk'] },
-    { id:'D104', code:'D104', name:'Deluxe Room', type:'Double Occupancy', rate:1500, img:'/images/r101-1.jpg', features:['AC','24×7 Hot Water','Reception Help','Clean Linen','Work Desk'] },
-    { id:'D105', code:'D105', name:'Deluxe Room', type:'Double Occupancy', rate:1500, img:'/images/r101-2.jpg', features:['AC','24×7 Hot Water','Reception Help','Clean Linen','Work Desk'] },
-    { id:'E201', code:'E201', name:'Executive Room', type:'Premium · Double Occupancy', rate:2000, img:'/images/r202-1.jpg', features:['AC','24×7 Hot Water','Reception Help','Clean Linen','Work Desk','Extra Space'] },
-    { id:'E202', code:'E202', name:'Executive Room', type:'Premium · Double Occupancy', rate:2000, img:'/images/r202-2.jpg', features:['AC','24×7 Hot Water','Reception Help','Clean Linen','Work Desk','Extra Space'] },
+    { id:'DELUXE', name:'Deluxe Room', type:'Double Occupancy', avail:'5 rooms', rate:1500, img:'/images/r101-1.jpg', features:['AC','24×7 Hot Water','Reception Help','Clean Linen','Work Desk'] },
+    { id:'EXECUTIVE', name:'Executive Room', type:'Premium · Double Occupancy', avail:'2 rooms', rate:2000, img:'/images/r202-1.jpg', features:['AC','24×7 Hot Water','Reception Help','Clean Linen','Work Desk','Extra Space'] },
   ];
   return (
     <div style={{ opacity:vis?1:0, transform:vis?'translateY(0)':'translateY(18px)', transition:'all 0.6s ease', paddingTop:70 }}>
@@ -263,14 +259,14 @@ const Rooms = ({ setPage }) => {
                 onMouseEnter={e => { e.currentTarget.style.boxShadow='0 10px 36px rgba(45,74,106,0.12)'; e.currentTarget.style.transform='translateY(-4px)'; }}
                 onMouseLeave={e => { e.currentTarget.style.boxShadow='0 1px 8px rgba(45,74,106,0.05)'; e.currentTarget.style.transform='translateY(0)'; }}>
                 <div style={{ height:180, overflow:'hidden' }}>
-                  <img src={room.img} alt={room.name + ' ' + room.code} loading="lazy" style={{ width:'100%', height:'100%', objectFit:'cover', display:'block' }} />
+                  <img src={room.img} alt={room.name} loading="lazy" style={{ width:'100%', height:'100%', objectFit:'cover', display:'block' }} />
                 </div>
                 <div style={{ padding:'24px 24px 28px' }}>
                   <div style={{ display:'flex', justifyContent:'space-between', alignItems:'flex-start', marginBottom:8 }}>
                     <h3 style={{ fontFamily:"'Playfair Display',serif", fontSize:19, fontWeight:700, color:'#1a243a', margin:0 }}>{room.name}</h3>
                     <span style={{ background:'#eaeef2', color:'#2d4a6a', fontFamily:"'DM Sans',sans-serif", fontSize:12, fontWeight:700, padding:'4px 12px', borderRadius:20, whiteSpace:'nowrap', marginLeft:8 }}>₹{room.rate.toLocaleString('en-IN')}/night</span>
                   </div>
-                  <div style={{ fontFamily:"'DM Sans',sans-serif", fontSize:13, color:'#6a7a8a', marginBottom:18 }}>Room {room.code} · {room.type}</div>
+                  <div style={{ fontFamily:"'DM Sans',sans-serif", fontSize:13, color:'#6a7a8a', marginBottom:18 }}>{room.avail} · {room.type}</div>
                   <div style={{ display:'flex', flexWrap:'wrap', gap:8 }}>
                     {room.features.map((f,i) => (
                       <span key={i} style={{ fontFamily:"'DM Sans',sans-serif", fontSize:12, color:'#3a4a5a', background:'#f4f6f9', border:'1px solid rgba(45,74,106,0.12)', padding:'4px 12px', borderRadius:20 }}>{f}</span>
@@ -405,13 +401,8 @@ const Booking = () => {
   const [submitError, setSubmitError] = useState('');
   useEffect(() => { setTimeout(() => setVis(true), 80); }, []);
   const rooms = [
-    { id:'D101', label:'Deluxe Room D101 — ₹1,500/night' },
-    { id:'D102', label:'Deluxe Room D102 — ₹1,500/night' },
-    { id:'D103', label:'Deluxe Room D103 — ₹1,500/night' },
-    { id:'D104', label:'Deluxe Room D104 — ₹1,500/night' },
-    { id:'D105', label:'Deluxe Room D105 — ₹1,500/night' },
-    { id:'E201', label:'Executive Room E201 — ₹2,000/night' },
-    { id:'E202', label:'Executive Room E202 — ₹2,000/night' },
+    { id:'DELUXE', label:'Deluxe Room — ₹1,500/night' },
+    { id:'EXECUTIVE', label:'Executive Room — ₹2,000/night' },
   ];
   const roomLabel = id => (rooms.find(r => r.id === id) || {}).label || id;
   const idTypes = ['Aadhaar Card','PAN Card','Driving License','Voter ID','Passport'];
@@ -880,6 +871,7 @@ const Admin = ({ setPage }) => {
   const [inv, setInv] = useState([]);
   const [cursor, setCursor] = useState(() => { const d = new Date(); return new Date(d.getFullYear(), d.getMonth(), 1); });
   const [selDate, setSelDate] = useState(null);
+  const [allotSel, setAllotSel] = useState({});
   useEffect(() => { setTimeout(() => setVis(true), 80); }, []);
 
   const login = async () => {
@@ -939,10 +931,33 @@ const Admin = ({ setPage }) => {
   const moveMonth = (off) => { setCursor(c => new Date(c.getFullYear(), c.getMonth() + off, 1)); };
   const roomInv = inv.filter(x => x.type === 'Room');
   const selBookings = selDate ? bookings.filter(x => covers(x, selDate)) : [];
-  const avail = selDate ? roomInv.map(s => { const occ = bookings.find(x => x.selectedSpaceId === s.id && covers(x, selDate)); return { s, booked: !!occ, who: occ ? occ.guestName : '' }; }) : [];
+  // A physical room is occupied on a date only once it has been allotted to a booking.
+  const avail = selDate ? roomInv.map(s => { const occ = bookings.find(x => x.allottedRoomId === s.id && covers(x, selDate)); return { s, booked: !!occ, who: occ ? occ.guestName : '' }; }) : [];
   const freeCount = avail.filter(x => !x.booked).length;
   const fmt = v => new Date(v).toLocaleString();
   const fmtDate = v => new Date(v).toLocaleDateString();
+
+  // ---- Room allotment helpers ----
+  const datesOverlap = (a, b) => new Date(a.checkinDateTime) < new Date(b.checkoutDateTime) && new Date(b.checkinDateTime) < new Date(a.checkoutDateTime);
+  const categoryOf = (b) => b.selectedSpaceId === 'EXECUTIVE' ? 'Executive' : (b.selectedSpaceId === 'DELUXE' ? 'Deluxe' : '');
+  const availableRoomsFor = (b) => {
+    const cat = categoryOf(b);
+    if (!cat) return [];
+    return roomInv.filter(r => r.category === cat)
+      .filter(r => !bookings.some(o => o.id !== b.id && o.allottedRoomId === r.id && datesOverlap(o, b)));
+  };
+  const allot = async (bookingId, roomId) => {
+    try {
+      const res = await fetch('/api/admin/allot', {
+        method:'POST', headers:{ 'Content-Type':'application/json', Authorization:'Bearer ' + token },
+        body: JSON.stringify({ bookingId, roomId }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) { setErr(data.message || 'Allotment failed'); return; }
+      setErr('');
+      await loadData();
+    } catch (e) { setErr('Allotment failed — check your connection.'); }
+  };
 
   const card = { background:'#fff', borderRadius:12, border:'1px solid rgba(45,74,106,0.1)', boxShadow:'0 1px 8px rgba(45,74,106,0.05)' };
   const labelCss = { display:'block', fontFamily:"'DM Sans',sans-serif", fontSize:13, fontWeight:600, color:'#2a3a35', marginBottom:7 };
@@ -1062,7 +1077,10 @@ const Admin = ({ setPage }) => {
                 <h3 style={{ fontFamily:"'Playfair Display',serif", fontSize:20, fontWeight:700, color:'#1a243a', margin:'0 0 18px' }}>All Bookings ({bookings.length})</h3>
                 {bookings.length === 0 && <div style={{ fontFamily:"'DM Sans',sans-serif", fontSize:14, color:'#8a98a0' }}>No bookings yet.</div>}
                 <div style={{ display:'grid', gap:10 }}>
-                  {bookings.map(b => (
+                  {bookings.map(b => {
+                    const isRoom = categoryOf(b) !== '';
+                    const freeRooms = isRoom ? availableRoomsFor(b) : [];
+                    return (
                     <div key={b.id} style={{ background:'#f8f9fb', borderRadius:8, padding:'14px 16px', border:'1px solid rgba(45,74,106,0.08)' }}>
                       <div style={{ display:'flex', justifyContent:'space-between', flexWrap:'wrap', gap:8 }}>
                         <div style={{ fontFamily:"'DM Sans',sans-serif", fontSize:14, fontWeight:600, color:'#1a243a' }}>{b.guestName} · {b.selectedSpaceLabel}</div>
@@ -1070,8 +1088,29 @@ const Admin = ({ setPage }) => {
                       </div>
                       <div style={{ fontFamily:"'DM Sans',sans-serif", fontSize:13, color:'#6a7a8a', marginTop:3 }}>{b.guestPhone || 'No phone'} · {fmt(b.checkinDateTime)} → {fmt(b.checkoutDateTime)}</div>
                       <div style={{ fontFamily:"'DM Sans',sans-serif", fontSize:12, color:'#8a98a0', marginTop:3 }}>Referral Dr: {b.referralDoctor || '—'}{b.specialRequests ? ' · Notes: ' + b.specialRequests : ''}</div>
+                      {isRoom && (
+                        <div style={{ marginTop:10, paddingTop:10, borderTop:'1px dashed rgba(45,74,106,0.15)', display:'flex', alignItems:'center', gap:10, flexWrap:'wrap' }}>
+                          <span style={{ fontFamily:"'DM Sans',sans-serif", fontSize:13, fontWeight:600, color: b.allottedRoomLabel ? '#2d6a5c' : '#c0392b' }}>
+                            {b.allottedRoomLabel ? 'Allotted: ' + b.allottedRoomLabel : 'Not allotted'}
+                          </span>
+                          <select value={allotSel[b.id] || ''} onChange={e => setAllotSel(s => ({ ...s, [b.id]: e.target.value }))}
+                            style={{ padding:'6px 10px', fontFamily:"'DM Sans',sans-serif", fontSize:13, border:'1px solid rgba(45,74,106,0.25)', borderRadius:6, background:'#fff' }}>
+                            <option value="">Choose room…</option>
+                            {freeRooms.map(r => <option key={r.id} value={r.id}>{r.name}</option>)}
+                          </select>
+                          <button onClick={() => { if (allotSel[b.id]) allot(b.id, allotSel[b.id]); }} disabled={!allotSel[b.id]}
+                            style={{ background: allotSel[b.id] ? '#2d4a6a' : '#a9b6c2', color:'#fff', border:'none', cursor: allotSel[b.id] ? 'pointer' : 'default', fontFamily:"'DM Sans',sans-serif", fontSize:13, fontWeight:600, padding:'7px 16px', borderRadius:6 }}>
+                            {b.allottedRoomLabel ? 'Reassign' : 'Allot'}
+                          </button>
+                          {b.allottedRoomLabel && (
+                            <button onClick={() => allot(b.id, '')} style={{ background:'transparent', color:'#c0392b', border:'1px solid rgba(192,57,43,0.4)', cursor:'pointer', fontFamily:"'DM Sans',sans-serif", fontSize:13, fontWeight:600, padding:'7px 14px', borderRadius:6 }}>Clear</button>
+                          )}
+                          {freeRooms.length === 0 && <span style={{ fontFamily:"'DM Sans',sans-serif", fontSize:12, color:'#c0392b' }}>No free {categoryOf(b).toLowerCase()} rooms for these dates</span>}
+                        </div>
+                      )}
                     </div>
-                  ))}
+                    );
+                  })}
                 </div>
               </div>
             </div>
@@ -1115,6 +1154,7 @@ const App = () => {
 
 const root = ReactDOM.createRoot(document.getElementById('root'));
 root.render(<App />);
+
 
 
 </script>
