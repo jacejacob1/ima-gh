@@ -4,6 +4,7 @@
   "installCommand": "npm install",
   "outputDirectory": "project",
   "rewrites": [
-    { "source": "/((?!api/).*)", "destination": "/index.html" }
+    { "source": "/api/:path*", "destination": "/api/router?route=:path*" },
+    { "source": "/((?!api/|images/|.*\\.).*)", "destination": "/index.html" }
   ]
 }

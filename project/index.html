@@ -316,18 +316,17 @@ const Gallery = () => {
   useEffect(() => { setTimeout(() => setVis(true), 80); }, []);
   const filters = ['All','Rooms','Hall'];
   const items = [
-    { id:1, category:'Rooms', label:'Deluxe Room — Interior', sub:'Room D101 · Double Occupancy', size:'tall', img:'/images/r101-1.jpg' },
-    { id:2, category:'Rooms', label:'Deluxe Room — Bed Area', sub:'Room D102 · Double Occupancy', size:'wide', img:'/images/r101-2.jpg' },
+    { id:1, category:'Rooms', label:'Deluxe Room — Interior', sub:'Double Occupancy', size:'tall', img:'/images/r101-1.jpg' },
+    { id:2, category:'Rooms', label:'Deluxe Room — Bed Area', sub:'Double Occupancy', size:'wide', img:'/images/r101-2.jpg' },
     { id:3, category:'Hall', label:'Conference Hall — Full View', sub:'300 Seat Capacity', size:'wide', img:'/images/h01-4.jpg' },
-    { id:4, category:'Rooms', label:'Executive Room — Interior', sub:'Room E201 · Premium', size:'normal', img:'/images/r202-1.jpg' },
+    { id:4, category:'Rooms', label:'Executive Room — Interior', sub:'Premium', size:'normal', img:'/images/r202-1.jpg' },
     { id:5, category:'Hall', label:'Hall — Stage & Podium', sub:'Audio Visual Setup', size:'normal', img:'/images/h01-5.jpg' },
-    { id:6, category:'Rooms', label:'Deluxe Room — Detail', sub:'Room D103', size:'normal', img:'/images/r101-3.jpg' },
-    { id:7, category:'Hall', label:'Hall — Seating Layout', sub:'Flexible Arrangement', size:'wide', img:'/images/h01-6.jpg' },
-    { id:8, category:'Rooms', label:'Executive Room — Desk Area', sub:'Room E202 · Work Desk', size:'normal', img:'/images/r202-2.jpg' },
-    { id:9, category:'Hall', label:'Hall — Event Setup', sub:'CME / Seminar Mode', size:'tall', img:'/images/h01-7.jpg' },
-    { id:10, category:'Rooms', label:'Executive Room — View', sub:'Room E202', size:'normal', img:'/images/r202-3.jpg' },
+    { id:6, category:'Rooms', label:'Deluxe Room — Detail', sub:'Double Occupancy', size:'normal', img:'/images/r101-3.jpg' },
+    { id:7, category:'Hall', label:'Hall — Seating Layout', sub:'Flexible Arrangement', size:'wide', img:'/images/h01-2.jpg' },
+    { id:8, category:'Rooms', label:'Executive Room — Desk Area', sub:'Work Desk', size:'normal', img:'/images/r202-2.jpg' },
+    { id:9, category:'Hall', label:'Hall — Event Setup', sub:'CME / Seminar Mode', size:'tall', img:'/images/h01-3.jpg' },
+    { id:10, category:'Rooms', label:'Executive Room — View', sub:'Premium', size:'normal', img:'/images/r202-3.jpg' },
     { id:11, category:'Hall', label:'Hall — Podium & AV', sub:'Audio Visual Setup', size:'normal', img:'/images/h01-1.jpg' },
-    { id:12, category:'Hall', label:'Hall — Overview', sub:'Conferences & Seminars', size:'wide', img:'/images/h01-8.jpg' },
   ];
   const filtered = filter === 'All' ? items : items.filter(i => i.category === filter);
   return (
