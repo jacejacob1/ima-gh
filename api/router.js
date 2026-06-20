@@ -3,7 +3,7 @@ import crypto from 'node:crypto';
 import { signAuthToken, signGuestToken, requireAuth } from '../lib/auth.js';
 import { serializeBooking } from '../lib/bookings.js';
 import { query } from '../lib/db.js';
-import { sendBookingConfirmation, sendOtpEmail, verifyEmailConfig } from '../lib/email.js';
+import { sendBookingConfirmation, sendOtpEmail } from '../lib/email.js';
 import { sendGuestWhatsAppConfirmation, sendAdminWhatsAppAlert } from '../lib/whatsapp.js';
 import {
   badRequest,
@@ -117,11 +117,6 @@ async function handleHealth(req, res) {
   return json(res, 200, { ok: true });
 }
 
-async function handleEmailCheck(req, res) {
-  if (req.method !== 'GET') return methodNotAllowed(res, ['GET']);
-  const result = await verifyEmailConfig();
-  return json(res, 200, result);
-}
 
 async function handleInventory(req, res) {
   if (req.method !== 'GET') return methodNotAllowed(res, ['GET']);
@@ -714,7 +709,6 @@ export default async function handler(req, res) {
   }
 
   if (segments[0] === 'health') return handleHealth(req, res);
-  if (segments[0] === 'email-check') return handleEmailCheck(req, res);
   if (segments[0] === 'inventory') return handleInventory(req, res);
   if (segments[0] === 'bookings') return handleBookings(req, res);
   if (segments[0] === 'feedback') return handleFeedback(req, res);
