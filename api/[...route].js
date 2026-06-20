@@ -132,7 +132,8 @@ async function handleAuthLogin(req, res) {
   const { username, password } = req.body || {};
   if (!username || !password) return badRequest(res, 'Username and password are required.');
 
-  const result = await query('SELECT id, username, password_hash, role FROM users WHERE username = $1', [
+  // Case-insensitive username match so "Admin1" (mobile auto-capitalisation) still works.
+  const result = await query('SELECT id, username, password_hash, role FROM users WHERE LOWER(username) = LOWER($1)', [
     String(username).trim(),
   ]);
   const user = result.rows[0];

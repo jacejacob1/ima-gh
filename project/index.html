@@ -983,7 +983,7 @@ const Admin = ({ setPage }) => {
               <h2 style={{ fontFamily:"'Playfair Display',serif", fontSize:22, fontWeight:700, color:'#1a243a', margin:'0 0 24px' }}>Staff Login</h2>
               <div style={{ marginBottom:18 }}>
                 <label style={labelCss}>Username</label>
-                <input value={uname} onChange={e => setUname(e.target.value)} placeholder="admin1" style={inputCss} />
+                <input value={uname} onChange={e => setUname(e.target.value)} placeholder="admin1" autoCapitalize="none" autoCorrect="off" spellCheck={false} style={inputCss} />
               </div>
               <div style={{ marginBottom:22 }}>
                 <label style={labelCss}>Password</label>
