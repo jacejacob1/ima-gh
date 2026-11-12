@@ -451,6 +451,9 @@ const Booking = () => {
   const set = (key, val) => setForm(f => ({ ...f, [key]:val }));
   const clearErr = key => setErrors(e => { const n={...e}; delete n[key]; return n; });
   const today = new Date().toISOString().split('T')[0];
+  // Logged-in admins may enter past bookings (e.g. backfilling old records); guests cannot.
+  const isAdmin = (() => { try { return !!localStorage.getItem('ima_admin_token'); } catch { return false; } })();
+  const minDate = isAdmin ? undefined : today;
   const validate = s => {
     const e = {};
     if (s===1) {
@@ -532,12 +535,12 @@ const Booking = () => {
                     <div style={{ display:'grid', gridTemplateColumns:'1fr 1fr', gap:16, marginBottom:22 }}>
                       <div>
                         <Label required>Check-in Date</Label>
-                        <input type="date" value={form.checkIn} min={today} onChange={e => { set('checkIn',e.target.value); clearErr('checkIn'); }} style={inputStyle(errors.checkIn)} />
+                        <input type="date" value={form.checkIn} min={minDate} onChange={e => { set('checkIn',e.target.value); clearErr('checkIn'); }} style={inputStyle(errors.checkIn)} />
                         <ErrMsg msg={errors.checkIn} />
                       </div>
                       <div>
                         <Label required>Check-out Date</Label>
-                        <input type="date" value={form.checkOut} min={form.checkIn||today} onChange={e => { set('checkOut',e.target.value); clearErr('checkOut'); }} style={inputStyle(errors.checkOut)} />
+                        <input type="date" value={form.checkOut} min={form.checkIn||minDate} onChange={e => { set('checkOut',e.target.value); clearErr('checkOut'); }} style={inputStyle(errors.checkOut)} />
                         <ErrMsg msg={errors.checkOut} />
                       </div>
                     </div>
